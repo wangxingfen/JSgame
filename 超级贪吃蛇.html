@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级贪吃蛇游戏</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #scoreBoard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 20px;
+        }
+        
+        /* Add media query for landscape orientation */
+        @media (orientation: landscape) {
+            #controls {
+                left: 50px;
+            }
+            
+            #speedBoost {
+                right: 50px;
+            }
+        }
+        
+        .d-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 5px;
+        }
+        
+        .d-pad-btn {
+            background-color: rgba(255, 255, 255, 0.3);
+            border: none;
+            border-radius: 10px;
+            font-size: 24px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        
+        .d-pad-btn:active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .d-pad-btn.up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+        
+        .d-pad-btn.down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+        
+        .d-pad-btn.left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        .d-pad-btn.right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+        
+        .center-btn {
+            grid-column: 2;
+            grid-row: 2;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        #speedBoost {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        #speedBoost:active {
+            background-color: rgba(255, 0, 0, 0.8);
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 20;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        #startButton {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 20px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="scoreBoard">
+            <div>玩家长度: <span id="playerScore">1</span></div>
+            <div>AI玩家: <span id="aliveAiCount">0</span>/<span id="totalAiCount">40</span></div>
+            <div id="leaderboardContainer" style="margin-top:10px;">
+                <strong>实时排行榜</strong>
+                <ol id="leaderboard" style="padding-left:20px;margin:0;font-size:14px;"></ol>
+            </div>
+        </div>
+        
+        <div id="instructions">
+            <h2>高级贪吃蛇游戏</h2>
+            <p><strong>游戏说明:</strong></p>
+            <p>● 使用方向键或屏幕按钮控制蛇移动</p>
+            <p>● 收集食物让蛇变长</p>
+            <p>● 长按红色按钮或空格键加速</p>
+            <p>● 避免撞墙或撞到任何蛇</p>
+            <p>● 蛇死后尸体会变成食物</p>
+            <p>● 移动超出边界会导致蛇死亡</p>
+            <p><strong>食物类型:</strong></p>
+            <p>● 不同颜色食物有不同效果</p>
+            <p>● 食物只会让蛇变长，不会缩短</p>
+            <p>● 没有会让蛇分裂的特殊食物</p>
+            <div style="margin: 10px 0; text-align:left;">
+                <label>AI蛇数量: <input id="aiCountInput" type="number" min="1" max="100" value="20" style="width:60px;"></label><br>
+                <label>地图大小倍数: <input id="worldSizeInput" type="number" min="1" max="10" value="2" style="width:60px;"></label><br>
+                <label>初始食物量: <input id="foodCountInput" type="number" min="100" max="5000" value="200" style="width:80px;"></label><br>
+                <label>基础速度: <input id="baseSpeedInput" type="number" min="10" max="200" value="200" style="width:60px;"> (越小越快)</label><br>
+            </div>
+            <button id="startButton">开始游戏</button>
+        </div>
+        
+        <div id="controls">
+            <div class="d-pad">
+                <div class="d-pad-btn up">↑</div>
+                <div class="d-pad-btn left">←</div>
+                <div class="d-pad-btn center-btn"></div>
+                <div class="d-pad-btn right">→</div>
+                <div class="d-pad-btn down">↓</div>
+            </div>
+        </div>
+        
+        <button id="speedBoost">加速</button>
+    </div>
+
+    <script>
+        // Game constants
+        let WORLD_SIZE = 4; // 40 times the screen size (increased from 20)
+        const CELL_SIZE = 10;
+        const INITIAL_SNAKE_LENGTH = 5;
+        const FOOD_TYPES = [
+            { color: '#FF5252', points: 1, grow: 1 },      // Red - 1 point
+            { color: '#FFD740', points: 3, grow: 2 },      // Yellow - 3 points
+            { color: '#69F0AE', points: 5, grow: 3 },      // Green - 5 points
+            { color: '#40C4FF', points: 10, grow: 5 },     // Blue - 10 points
+            { color: '#E040FB', points: 20, grow: 10 },    // Purple - 20 points
+            { color: '#18FFFF', points: 0, grow: 0, speedBoost: true } // Cyan - Speed boost
+        ];
+        let AI_SNAKE_COUNT = 15;
+        let BASE_SPEED = 100; // milliseconds per move
+        let BOOST_SPEED = 100; // milliseconds per move when boosted
+        let INITIAL_FOOD_COUNT = 2000;
+        
+        // Game variables
+        let canvas, ctx;
+        let playerSnake;
+        let aiSnakes = [];
+        let foods = [];
+        let gameRunning = false;
+        let gameLoop;
+        let worldWidth, worldHeight;
+        let viewX = 0, viewY = 0;
+        let speedBoostActive = false;
+        let currentSpeed = BASE_SPEED;
+        let gameTime = 0;
+        
+        // Reset all game variables to their initial state
+        function resetGame() {
+            // Reset canvas and context
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Reset game state variables
+            gameRunning = false;
+            gameTime = 0;
+            speedBoostActive = false;
+            currentSpeed = BASE_SPEED;
+            viewX = 0;
+            viewY = 0;
+            
+            // Reset snakes
+            playerSnake = null;
+            aiSnakes = [];
+            
+            // Reset foods
+            foods = [];
+            
+            // Clear any existing game loop
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = null;
+        }
+        
+        // Initialize the game with all required setup
+        function init() {
+            // 读取设置
+            const aiInput = document.getElementById('aiCountInput');
+            const worldInput = document.getElementById('worldSizeInput');
+            const foodInput = document.getElementById('foodCountInput');
+            const baseSpeedInput = document.getElementById('baseSpeedInput');
+            if (aiInput && worldInput && foodInput && baseSpeedInput) {
+                AI_SNAKE_COUNT = Math.max(1, Math.min(100, parseInt(aiInput.value) || 15));
+                WORLD_SIZE = Math.max(1, Math.min(10, parseInt(worldInput.value) || 4));
+                INITIAL_FOOD_COUNT = Math.max(100, Math.min(5000, parseInt(foodInput.value) || 2000));
+                BASE_SPEED = Math.max(10, Math.min(200, parseInt(baseSpeedInput.value) || 20));
+                BOOST_SPEED = BASE_SPEED * 5; // 加速时为基础速度的5倍
+            }
+            
+            // First, reset all game variables to initial state
+            resetGame();
+            
+            // Set canvas size to window size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Calculate world size
+            worldWidth = canvas.width * WORLD_SIZE;
+            worldHeight = canvas.height * WORLD_SIZE;
+            
+            // Create player snake
+            playerSnake = createSnake(
+                Math.floor(worldWidth / 2 / CELL_SIZE) * CELL_SIZE,
+                Math.floor(worldHeight / 2 / CELL_SIZE) * CELL_SIZE,
+                '#FFFFFF',
+                true
+            );
+            playerSnake.invulnerableTime = 5000 / BASE_SPEED; // 玩家蛇开局无敌5秒
+            
+            // Create AI snakes
+            aiSnakes = [];
+            for (let i = 0; i < AI_SNAKE_COUNT; i++) {
+                const x = Math.floor(Math.random() * (worldWidth - 200) + 100);
+                const y = Math.floor(Math.random() * (worldHeight - 200) + 100);
+                // 增加更多颜色选项
+                const colors = [
+                    '#FF5252', '#FFD740', '#69F0AE', '#40C4FF', '#E040FB',
+                    '#FF4081', '#7C4DFF', '#54C7FC', '#66BB6A', '#FFCA28',
+                    '#FF7043', '#8D6E63', '#AB47BC', '#42A5F5', '#26A69A',
+                    '#D4E157', '#FFA726', '#8C9EFF', '#EC407A', '#78909C'
+                ];
+                aiSnakes.push(createSnake(
+                    Math.floor(x / CELL_SIZE) * CELL_SIZE,
+                    Math.floor(y / CELL_SIZE) * CELL_SIZE,
+                    colors[i % colors.length],
+                    false
+                ));
+            }
+            
+            // Generate initial food (根据设置)
+            generateFood(INITIAL_FOOD_COUNT);
+            
+            // Set up controls
+            setupControls();
+            
+            // Start game loop
+            gameRunning = true;
+            gameLoop = setInterval(update, currentSpeed);
+        }
+        
+        // Create a snake object
+        function createSnake(x, y, color, isPlayer) {
+            const segments = [];
+            for (let i = 0; i < INITIAL_SNAKE_LENGTH; i++) {
+                segments.push({ x: x - i * CELL_SIZE, y: y });
+            }
+            
+            // Random initial direction
+            const directions = [
+                { x: 1, y: 0 },
+                { x: -1, y: 0 },
+                { x: 0, y: 1 },
+                { x: 0, y: -1 }
+            ];
+            const direction = directions[Math.floor(Math.random() * directions.length)];
+            
+            return new Snake(segments, direction, color, isPlayer);
+        }
+        
+        // Snake class to handle all snake behavior
+        class Snake {
+            constructor(segments, direction, color, isPlayer) {
+                this.segments = segments;
+                this.direction = direction;
+                this.nextDirection = direction;
+                this.color = color;
+                this.isPlayer = isPlayer;
+                this.alive = true;
+                this.speedBoost = false;
+                this.speedBoostTime = 0;
+                this.respawnTime = 0;
+                this.name = isPlayer ? "Player" : "AI";
+                this.positionHistory = []; // Only used for AI snakes
+                this.invulnerableTime = 0; // Time snake is invulnerable after respawn
+            }
+            
+            // Reset snake to initial state
+            reset(x, y) {
+                this.segments = [];
+                for (let i = 0; i < INITIAL_SNAKE_LENGTH; i++) {
+                    this.segments.push({ x: x - i * CELL_SIZE, y: y });
+                }
+                // Random direction
+                const directions = [
+                    { x: 1, y: 0 },
+                    { x: -1, y: 0 },
+                    { x: 0, y: 1 },
+                    { x: 0, y: -1 }
+                ];
+                const direction = directions[Math.floor(Math.random() * directions.length)];
+                this.direction = direction;
+                this.nextDirection = direction;
+                // Reset all properties to initial state
+                this.alive = true;
+                this.speedBoost = false;
+                this.speedBoostTime = 0;
+                this.respawnTime = 0;
+                this.positionHistory = []; // 清空AI蛇的历史路径，防止重生后打转
+                this.invulnerableTime = 5000 / BASE_SPEED; // 5秒无敌（玩家和AI通用）
+            }
+            
+            // Update snake position
+            update() {
+                if (!this.alive) return;
+                
+                // Update direction
+                this.direction = { ...this.nextDirection };
+                
+                // Calculate new head position
+                const head = { ...this.segments[0] };
+                head.x += this.direction.x * CELL_SIZE;
+                head.y += this.direction.y * CELL_SIZE;
+                
+                // Add new head
+                this.segments.unshift(head);
+                
+                // Handle speed boost effect
+                if (this.speedBoost) {
+                    this.speedBoostTime--;
+                    if (this.speedBoostTime <= 0) {
+                        this.speedBoost = false;
+                    }
+                }
+                
+                // Decrease invulnerability time
+                if (this.invulnerableTime > 0) {
+                    this.invulnerableTime--;
+                }
+            }
+            
+            // Update AI behavior
+            updateAI(playerSnake, aiSnakes) {
+                if (!this.alive || this.isPlayer) return;
+                this.positionHistory.push({
+                    x: this.segments[0].x,
+                    y: this.segments[0].y
+                });
+                if (this.positionHistory.length > 30) {
+                    this.positionHistory.shift();
+                }
+                const head = this.segments[0];
+                const possibleDirections = [
+                    { x: 1, y: 0 },   // Right
+                    { x: -1, y: 0 },  // Left
+                    { x: 0, y: 1 },   // Down
+                    { x: 0, y: -1 }   // Up
+                ];
+                // Filter out reverse direction
+                const validDirections = possibleDirections.filter(dir => 
+                    !(dir.x === -this.direction.x && dir.y === -this.direction.y)
+                );
+                // Enhanced self-collision detection: exclude directions that would cause head to hit own body
+                const selfSafeDirections = validDirections.filter(dir => {
+                    const newHead = {
+                        x: head.x + dir.x * CELL_SIZE,
+                        y: head.y + dir.y * CELL_SIZE
+                    };
+                    // Skip only the head itself, check all others
+                    const skipSegments = 1;
+                    for (let i = skipSegments; i < this.segments.length; i++) {
+                        const seg = this.segments[i];
+                        if (Math.abs(newHead.x - seg.x) < CELL_SIZE && Math.abs(newHead.y - seg.y) < CELL_SIZE) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                const directionsToConsider = selfSafeDirections.length > 0 ? selfSafeDirections : validDirections.length > 0 ? validDirections : possibleDirections;
+                
+                // Cache alive snakes to avoid repeated filtering
+                const aliveSnakes = [playerSnake, ...aiSnakes].filter(s => s.alive && s !== this);
+                
+                // Predictive path safety function (includes self-collision detection)
+                const isSafe = (dir, steps = 6) => {
+                    let pos = { x: head.x, y: head.y };
+                    for (let s = 0; s < steps; s++) {
+                        pos = { x: pos.x + dir.x * CELL_SIZE, y: pos.y + dir.y * CELL_SIZE };
+                        // Check boundaries
+                        if (pos.x < 0 || pos.x >= worldWidth || pos.y < 0 || pos.y >= worldHeight) return false;
+                        
+                        // Check collision with own body (skip only the head itself)
+                        const skipSegments = 1;
+                        for (let i = skipSegments; i < this.segments.length; i++) {
+                            const seg = this.segments[i];
+                            if (Math.abs(pos.x - seg.x) < CELL_SIZE && Math.abs(pos.y - seg.y) < CELL_SIZE) {
+                                return false;
+                            }
+                        }
+                        
+                        // Check collision with other snakes
+                        for (const other of aliveSnakes) {
+                            for (let i = 0; i < other.segments.length; i++) {
+                                const seg = other.segments[i];
+                                if (Math.abs(pos.x - seg.x) < CELL_SIZE && Math.abs(pos.y - seg.y) < CELL_SIZE) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    return true;
+                };
+                
+                // Advanced dead-end detection using flood fill algorithm
+                const getAreaSize = (startX, startY, dir, maxSteps = 200) => {
+                    const visited = new Set();
+                    const queue = [];
+                    const dx = dir.x * CELL_SIZE;
+                    const dy = dir.y * CELL_SIZE;
+                    const startPos = {x: startX + dx, y: startY + dy};
+                    
+                    // Check if starting position is valid
+                    if (startPos.x < 0 || startPos.x >= worldWidth || 
+                        startPos.y < 0 || startPos.y >= worldHeight) {
+                        return 0;
+                    }
+                    
+                    // Create spatial index for snake segments to improve collision detection performance
+                    const segmentMap = new Map();
+                    const addSegmentsToMap = (snake, keyPrefix) => {
+                        if (!snake.alive) return;
+                        for (let i = 0; i < snake.segments.length; i++) {
+                            const seg = snake.segments[i];
+                            const mapKey = `${Math.floor(seg.x/CELL_SIZE)},${Math.floor(seg.y/CELL_SIZE)}`;
+                            if (!segmentMap.has(mapKey)) {
+                                segmentMap.set(mapKey, []);
+                            }
+                            segmentMap.get(mapKey).push(seg);
+                        }
+                    };
+                    
+                    // Add all snake segments to spatial map
+                    addSegmentsToMap(playerSnake, 'player');
+                    for (const ai of aiSnakes) {
+                        if (ai !== this) addSegmentsToMap(ai, 'ai');
+                    }
+                    
+                    // Add own body segments (except head)
+                    for (let i = 1; i < this.segments.length; i++) {
+                        const seg = this.segments[i];
+                        const mapKey = `${Math.floor(seg.x/CELL_SIZE)},${Math.floor(seg.y/CELL_SIZE)}`;
+                        if (!segmentMap.has(mapKey)) {
+                            segmentMap.set(mapKey, []);
+                        }
+                        segmentMap.get(mapKey).push(seg);
+                    }
+                    
+                    // Quick check for starting position collision using spatial index
+                    const startMapKey = `${Math.floor(startPos.x/CELL_SIZE)},${Math.floor(startPos.y/CELL_SIZE)}`;
+                    if (segmentMap.has(startMapKey)) {
+                        const segments = segmentMap.get(startMapKey);
+                        for (const seg of segments) {
+                            if (Math.abs(startPos.x - seg.x) < CELL_SIZE && Math.abs(startPos.y - seg.y) < CELL_SIZE) {
+                                return 0;
+                            }
+                        }
+                    }
+                    
+                    queue.push(startPos);
+                    visited.add(startPos.x + ',' + startPos.y);
+                    
+                    let areaSize = 1;
+                    
+                    while (queue.length > 0 && areaSize < maxSteps) {
+                        const pos = queue.shift();
+                        
+                        // Check all four directions
+                        const neighbors = [
+                            {x: pos.x + CELL_SIZE, y: pos.y},
+                            {x: pos.x - CELL_SIZE, y: pos.y},
+                            {x: pos.x, y: pos.y + CELL_SIZE},
+                            {x: pos.x, y: pos.y - CELL_SIZE}
+                        ];
+                        
+                        for (const neighbor of neighbors) {
+                            // Skip if out of bounds
+                            if (neighbor.x < 0 || neighbor.x >= worldWidth || 
+                                neighbor.y < 0 || neighbor.y >= worldHeight) {
+                                continue;
+                            }
+                            
+                            const key = neighbor.x + ',' + neighbor.y;
+                            
+                            // Skip if already visited
+                            if (visited.has(key)) {
+                                continue;
+                            }
+                            
+                            // Quick collision check using spatial index
+                            const mapKey = `${Math.floor(neighbor.x/CELL_SIZE)},${Math.floor(neighbor.y/CELL_SIZE)}`;
+                            let safe = true;
+                            
+                            if (segmentMap.has(mapKey)) {
+                                const segments = segmentMap.get(mapKey);
+                                for (const seg of segments) {
+                                    if (Math.abs(neighbor.x - seg.x) < CELL_SIZE && Math.abs(neighbor.y - seg.y) < CELL_SIZE) {
+                                        safe = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (safe) {
+                                visited.add(key);
+                                queue.push(neighbor);
+                                areaSize++;
+                            }
+                        }
+                    }
+                    
+                    return areaSize;
+                };
+                
+                // Pre-calculate some values that will be used multiple times
+                const headCellX = Math.floor(head.x / CELL_SIZE);
+                const headCellY = Math.floor(head.y / CELL_SIZE);
+                
+                // Pre-calculate boundary limits
+                const boundaryPenaltyZone = CELL_SIZE * 4;
+                const boundaryComfortZone = CELL_SIZE * 6;
+                const minX = boundaryPenaltyZone;
+                const maxX = worldWidth - boundaryPenaltyZone;
+                const minY = boundaryPenaltyZone;
+                const maxY = worldHeight - boundaryPenaltyZone;
+                const comfortMinX = boundaryComfortZone;
+                const comfortMaxX = worldWidth - boundaryComfortZone;
+                const comfortMinY = boundaryComfortZone;
+                const comfortMaxY = worldHeight - boundaryComfortZone;
+                
+                // Calculate scores for each direction
+                let bestDirection = this.direction;
+                let bestScore = -Infinity;
+                
+                // Pre-find closest food for efficiency
+                let closestFood = null;
+                let minFoodDistance = Infinity;
+                if (foods.length > 0) {
+                    for (let i = 0; i < foods.length; i++) {
+                        const food = foods[i];
+                        const dx = food.x - head.x;
+                        const dy = food.y - head.y;
+                        const dist = dx * dx + dy * dy; // Use squared distance to avoid sqrt
+                        if (dist < minFoodDistance) {
+                            minFoodDistance = dist;
+                            closestFood = food;
+                        }
+                    }
+                    minFoodDistance = Math.sqrt(minFoodDistance); // Only sqrt when needed
+                }
+                
+                for (const direction of directionsToConsider) {
+                    const newHead = {
+                        x: head.x + direction.x * CELL_SIZE,
+                        y: head.y + direction.y * CELL_SIZE
+                    };
+                    if (newHead.x < 0 || newHead.x >= worldWidth || newHead.y < 0 || newHead.y >= worldHeight) {
+                        continue;
+                    }
+                    let score = 0;
+                    // Predictive safety
+                    if (!isSafe(direction, 6)) {
+                        score -= 2500;
+                    }
+                    // Check direct collision with own body (heavily penalize)
+                    const skipSegments = Math.max(INITIAL_SNAKE_LENGTH, Math.floor(this.segments.length / 3));
+                    for (let i = skipSegments; i < this.segments.length; i++) {
+                        const seg = this.segments[i];
+                        if (Math.abs(newHead.x - seg.x) < CELL_SIZE && Math.abs(newHead.y - seg.y) < CELL_SIZE) {
+                            score -= 3000;
+                            break; // Early exit since we only need to know if there's a collision
+                        }
+                    }
+                    // Check collision risk with snakes - using pre-filtered alive snakes
+                    for (const other of aliveSnakes) {
+                        for (let i = 0; i < other.segments.length; i++) {
+                            const seg = other.segments[i];
+                            if (Math.abs(newHead.x - seg.x) < CELL_SIZE && Math.abs(newHead.y - seg.y) < CELL_SIZE) {
+                                score -= 1500;
+                                // Early exit for performance
+                                i = other.segments.length;
+                                break;
+                            }
+                        }
+                    }
+                    // Penalize being too close to boundaries
+                    if (newHead.x < minX || newHead.x > maxX ||
+                        newHead.y < minY || newHead.y > maxY) {
+                        score -= 300;
+                    } else if (newHead.x >= comfortMinX && newHead.x <= comfortMaxX &&
+                               newHead.y >= comfortMinY && newHead.y <= comfortMaxY) {
+                        score += 200; // Reward being in a comfortable distance from walls
+                    }
+                    // Advanced dead-end detection - heavily penalize directions leading to small areas
+                    const areaSize = getAreaSize(head.x, head.y, direction, 200);
+                    if (areaSize < 20) {
+                        score -= 5000; // Heavy penalty for dead ends
+                    } else if (areaSize < 50) {
+                        score -= 1000; // Medium penalty for tight spaces
+                    } else {
+                        score += areaSize / 10; // Reward spacious areas
+                    }
+                    // Only consider food if we're not in immediate danger
+                    if (score > -1000 && closestFood) {
+                        const dx = closestFood.x - newHead.x;
+                        const dy = closestFood.y - newHead.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        let foodValue = closestFood.type.points;
+                        if (closestFood.type.speedBoost) foodValue += 10; // Prioritize speed boost
+                        // Reduced food bonus to prioritize survival
+                        let foodBonus = foodValue * 60 / (dist + 1); 
+                        if (dist < CELL_SIZE * 5) foodBonus += 1000 / (dist + 1);
+                        score += foodBonus;
+                    }
+                    // Avoid circling: penalize if 7 of the last 10 steps are nearby
+                    let circleRisk = 0;
+                    if (this.positionHistory.length >= 15) {
+                        const recent = this.positionHistory.slice(-12);
+                        for (const pos of recent) {
+                            if (Math.abs(newHead.x - pos.x) < CELL_SIZE * 3 && Math.abs(newHead.y - pos.y) < CELL_SIZE * 3) {
+                                circleRisk++;
+                            }
+                        }
+                    }
+                    if (circleRisk > 7) score -= 400;
+                    // Small reward for moving toward center
+                    const centerX = worldWidth / 2;
+                    const centerY = worldHeight / 2;
+                    const centerDist = Math.sqrt(Math.pow(newHead.x - centerX, 2) + Math.pow(newHead.y - centerY, 2));
+                    score += 600 / (centerDist + 1);
+                    // Avoid head-on collisions with other snakes
+                    for (const other of aliveSnakes) {
+                        const otherHead = other.segments[0];
+                        if (Math.abs(newHead.x - otherHead.x) < CELL_SIZE && Math.abs(newHead.y - otherHead.y) < CELL_SIZE) {
+                            score -= 1000;
+                            break;
+                        }
+                    }
+                    // Random perturbation to avoid僵化
+                    score += Math.random() * 2.0;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestDirection = direction;
+                    }
+                }
+                // If all directions are dangerous, randomly choose a safe one
+                if (bestScore < -500) {
+                    const safeDirs = directionsToConsider.filter(d => isSafe(d, 4));
+                    if (safeDirs.length > 0) {
+                        bestDirection = safeDirs[Math.floor(Math.random() * safeDirs.length)];
+                    }
+                }
+                this.nextDirection = bestDirection;
+            }
+        }
+
+        // Respawn a snake
+        function respawnSnake(snake) {
+            // Find a safe position to respawn
+            let x, y;
+            let safe = false;
+            let attempts = 0;
+            
+            while (!safe && attempts < 50) {
+                x = Math.floor(Math.random() * (worldWidth - 200) + 100);
+                y = Math.floor(Math.random() * (worldHeight - 200) + 100);
+                // 保证坐标与CELL_SIZE对齐
+                x = Math.floor(x / CELL_SIZE) * CELL_SIZE;
+                y = Math.floor(y / CELL_SIZE) * CELL_SIZE;
+                // Check if this position is safe (not colliding with any snakes or food)
+                safe = true;
+                
+                // Check all snakes (player and AI)
+                for (const snakeToCheck of [playerSnake, ...aiSnakes]) {
+                    if (!snakeToCheck.alive) continue;
+                    
+                    for (const segment of snakeToCheck.segments) {
+                        if (Math.abs(segment.x - x) < CELL_SIZE * 3 && 
+                            Math.abs(segment.y - y) < CELL_SIZE * 3) {
+                            safe = false;
+                            break;
+                        }
+                    }
+                    if (!safe) break;
+                }
+                
+                // Check food positions
+                if (safe) {
+                    for (const food of foods) {
+                        if (Math.abs(food.x - x) < CELL_SIZE && 
+                            Math.abs(food.y - y) < CELL_SIZE) {
+                            safe = false;
+                            break;
+                        }
+                    }
+                }
+                
+                attempts++;
+            }
+            
+            if (safe) {
+                // Reset snake to initial state using the new method
+                snake.reset(x, y);
+            } else {
+                snake.reset(Math.floor(worldWidth / 2 / CELL_SIZE) * CELL_SIZE,
+                           Math.floor(worldHeight / 2 / CELL_SIZE) * CELL_SIZE);
+            }
+            
+            // Ensure snake is properly reset
+            snake.alive = true;
+            // 清理历史路径
+            if (snake.positionHistory) snake.positionHistory = [];
+        }
+        
+        // Update game state
+        function update() {
+            if (!gameRunning) return;
+            
+            // Increment game time
+            gameTime++;
+            
+            // Update player snake
+            if (playerSnake.alive) {
+                playerSnake.update();
+            }
+            
+            // Update AI snakes
+            let aliveAICount = 0;
+            for (const snake of aiSnakes) {
+                // AI蛇无论invulnerableTime都应执行updateAI，保证能持续寻路吃食物
+                snake.updateAI(playerSnake, aiSnakes);
+                if (snake.alive) {
+                    snake.update();
+                    aliveAICount++;
+                } else {
+                    // Handle respawn for AI snakes
+                    snake.respawnTime++;
+                    if (snake.respawnTime > 200) { // Respawn after 200 game ticks
+                        const wasDead = !snake.alive;
+                        respawnSnake(snake);
+                        // If snake was successfully respawned, make sure it participates in this game tick
+                        if (wasDead && snake.alive) {
+                            // Ensure the snake is properly set as alive
+                            snake.alive = true;
+                            // Set invulnerable time after respawn (5 seconds)
+                            snake.invulnerableTime = 5000 / BASE_SPEED; // 5 seconds in game ticks
+                            // Update AI behavior for the newly respawned snake
+                            snake.updateAI(playerSnake, aiSnakes);
+                            // Update snake position
+                            snake.update();
+                            // Check for collisions immediately to ensure it doesn't spawn on food or other snakes
+                            checkSnakeCollisions(snake);
+                        }
+                    }
+                }
+            }
+            
+            // Ensure we always have the correct number of AI snakes
+            // If there are fewer snakes than AI_SNAKE_COUNT, create new ones
+            while (aiSnakes.length < AI_SNAKE_COUNT) {
+                const x = Math.floor(Math.random() * (worldWidth - 200) + 100);
+                const y = Math.floor(Math.random() * (worldHeight - 200) + 100);
+                // 增加更多颜色选项
+                const colors = [
+                    '#FF5252', '#FFD740', '#69F0AE', '#40C4FF', '#E040FB',
+                    '#FF4081', '#7C4DFF', '#54C7FC', '#66BB6A', '#FFCA28',
+                    '#FF7043', '#8D6E63', '#AB47BC', '#42A5F5', '#26A69A',
+                    '#D4E157', '#FFA726', '#8C9EFF', '#EC407A', '#78909C'
+                ];
+                const newSnake = createSnake(
+                    Math.floor(x / CELL_SIZE) * CELL_SIZE,
+                    Math.floor(y / CELL_SIZE) * CELL_SIZE,
+                    colors[Math.floor(Math.random() * colors.length)],
+                    false
+                );
+                // Give new snakes invulnerability time
+                newSnake.invulnerableTime = 5000 / BASE_SPEED;
+                aiSnakes.push(newSnake);
+            }
+            
+            // If there are more snakes than AI_SNAKE_COUNT, remove the excess dead ones
+            if (aiSnakes.length > AI_SNAKE_COUNT) {
+                // Remove dead snakes first
+                for (let i = aiSnakes.length - 1; i >= 0 && aiSnakes.length > AI_SNAKE_COUNT; i--) {
+                    if (!aiSnakes[i].alive) {
+                        aiSnakes.splice(i, 1);
+                    }
+                }
+                
+                // If we still have too many, remove any snakes
+                while (aiSnakes.length > AI_SNAKE_COUNT) {
+                    aiSnakes.pop();
+                }
+            }
+            
+            // Move view to follow player
+            if (playerSnake.alive) {
+                viewX = playerSnake.segments[0].x - canvas.width / 2;
+                viewY = playerSnake.segments[0].y - canvas.height / 2;
+            }
+            
+            // Check for collisions for living snakes
+            if (playerSnake.alive) {
+                checkSnakeCollisions(playerSnake);
+            }
+            
+            for (const snake of aiSnakes) {
+                if (snake.alive) {
+                    checkSnakeCollisions(snake);
+                }
+            }
+            
+            // Check food collection - moved to ensure respawned snakes can collect food immediately
+            // This should happen after all snake updates and collision checks
+            checkFoodCollection();
+            
+            // Keep view within world bounds
+            viewX = Math.max(0, Math.min(viewX, worldWidth - canvas.width));
+            viewY = Math.max(0, Math.min(viewY, worldHeight - canvas.height));
+            
+            // Generate more food if needed
+            if (foods.length < Math.max(0.75 * INITIAL_FOOD_COUNT, 100)) {
+                generateFood(Math.floor(0.5 * INITIAL_FOOD_COUNT));
+            }
+            
+            // Remove food that has been uneaten for more than 30 seconds
+            const now = Date.now();
+            foods = foods.filter(food => now - food.createdAt < 30000);
+            
+            // Update length display
+            document.getElementById('playerScore').textContent = playerSnake.alive ? playerSnake.segments.length : playerSnake.segments.length;
+            document.getElementById('aliveAiCount').textContent = aliveAICount;
+            document.getElementById('totalAiCount').textContent = AI_SNAKE_COUNT;
+
+            // Update leaderboard
+            updateLeaderboard();
+            
+            // Draw everything
+            draw();
+        }
+
+        // 实时排行榜更新
+        function updateLeaderboard() {
+            // 收集所有蛇（包括玩家和AI）
+            const allSnakes = [playerSnake, ...aiSnakes];
+            // 只统计存活蛇
+            const aliveSnakes = allSnakes.filter(s => s.alive);
+            // 按长度降序排序
+            aliveSnakes.sort((a, b) => b.segments.length - a.segments.length);
+            // 取前10名
+            const top10 = aliveSnakes.slice(0, 10);
+            // 找到玩家在排行榜中的位置
+            const playerIndex = aliveSnakes.findIndex(s => s === playerSnake);
+            // 构建排行榜HTML
+            let html = '';
+            for (let i = 0; i < top10.length; i++) {
+                const snake = top10[i];
+                const isPlayer = snake === playerSnake;
+                html += `<li${isPlayer ? ' style=\"color:#FFD700;font-weight:bold;\"' : ''}>${isPlayer ? '你' : (snake.name || 'AI')}：${snake.segments.length}</li>`;
+            }
+            // 如果玩家不在前10，显示玩家排名
+            if (playerIndex >= 10) {
+                html += `<li style=\"color:#FFD700;font-weight:bold;\">你的位置: 第${playerIndex+1}名，长度${playerSnake.segments.length}</li>`;
+            }
+            document.getElementById('leaderboard').innerHTML = html;
+        }
+        
+        // Generate food items
+        function generateFood(count) {
+            for (let i = 0; i < count; i++) {
+                foods.push({
+                    x: Math.floor(Math.random() * worldWidth / CELL_SIZE) * CELL_SIZE,
+                    y: Math.floor(Math.random() * worldHeight / CELL_SIZE) * CELL_SIZE,
+                    type: FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)],
+                    createdAt: Date.now() // 添加创建时间戳
+                });
+            }
+        }
+        
+        // Check for collisions
+        function checkCollisions() {
+            // Check player collisions
+            if (playerSnake.alive) {
+                checkSnakeCollisions(playerSnake);
+            }
+            
+            // Check AI collisions
+            for (const snake of aiSnakes) {
+                if (snake.alive) {
+                    checkSnakeCollisions(snake);
+                }
+            }
+            
+            // Check food collection
+            checkFoodCollection();
+        }
+        
+        // Check collisions for a specific snake
+        function checkSnakeCollisions(snake) {
+            if (!snake.alive) return;
+            const head = snake.segments[0];
+            // 判定宽度恒定为CELL_SIZE
+            const thickness = CELL_SIZE;
+            // Check collision with world boundaries
+            if (head.x < 0 || head.x >= worldWidth || head.y < 0 || head.y >= worldHeight) {
+                if (snake.isPlayer) {
+                    gameOver();
+                } else {
+                    snake.alive = false;
+                    if (snake.positionHistory) snake.positionHistory = [];
+                    // Convert snake body to food
+                    convertSnakeToFood(snake);
+                }
+                return;
+            }
+            // Check collision with self (skip head)
+            if (snake.invulnerableTime <= 0) {
+                const skipSegments = 1; // 不再跳过前几个单元格，全部检测
+                for (let i = skipSegments; i < snake.segments.length; i++) {
+                    const segment = snake.segments[i];
+                    const dx = head.x - segment.x;
+                    const dy = head.y - segment.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < thickness) {
+                        if (snake.isPlayer) {
+                            gameOver();
+                        } else {
+                            snake.alive = false;
+                            if (snake.positionHistory) snake.positionHistory = [];
+                            // Convert snake body to food
+                            convertSnakeToFood(snake);
+                        }
+                        return;
+                    }
+                }
+            }
+            // Check collision with other snakes
+            for (const otherSnake of [...aiSnakes, playerSnake]) {
+                if (!otherSnake.alive || otherSnake === snake) continue;
+                // Skip collision check if either snake is invulnerable
+                if (otherSnake.invulnerableTime > 0) continue;
+                const otherThickness = CELL_SIZE;
+                for (let j = 0; j < otherSnake.segments.length; j++) {
+                    if (snake === otherSnake && j === 0) continue;
+                    const segment = otherSnake.segments[j];
+                    const dx = head.x - segment.x;
+                    const dy = head.y - segment.y;
+                    const collisionDist = (thickness + otherThickness) / 2;
+                    if (Math.sqrt(dx * dx + dy * dy) < collisionDist) {
+                        if (snake.isPlayer) {
+                            gameOver();
+                        } else {
+                            snake.alive = false;
+                            if (snake.positionHistory) snake.positionHistory = [];
+                            // Convert snake body to food
+                            convertSnakeToFood(snake);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Convert snake body segments to food
+        function convertSnakeToFood(snake) {
+            // Convert only about 1/4 of the snake's segments to food
+            const segmentsToConvert = Math.max(1, Math.floor(snake.segments.length / 4));
+            
+            // Select random segments to convert to food
+            const shuffledSegments = [...snake.segments].sort(() => 0.5 - Math.random());
+            const selectedSegments = shuffledSegments.slice(0, segmentsToConvert);
+            
+            // Convert selected segments of the dead snake to food
+            for (const segment of selectedSegments) {
+                // Add food at each segment position with a random food type
+                const foodType = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
+                foods.push({
+                    x: segment.x,
+                    y: segment.y,
+                    type: foodType,
+                    createdAt: Date.now() // 添加创建时间戳
+                });
+            }
+        }
+        
+        // Check if snakes have collected food
+        function checkFoodCollection() {
+            const initialFoodCount = foods.length;
+            
+            // Check player collecting food
+            if (playerSnake.alive) {
+                checkSnakeFoodCollection(playerSnake);
+            }
+            
+            // Check AI collecting food
+            for (const snake of aiSnakes) {
+                // 只要AI蛇存活就允许吃食物（无论invulnerableTime）
+                if (snake.alive) {
+                    checkSnakeFoodCollection(snake);
+                }
+            }
+            
+            // Generate new food to maintain constant count
+            const foodEaten = initialFoodCount - foods.length;
+            if (foodEaten > 0) {
+                generateFood(foodEaten);
+            }
+        }
+        
+        // Check if a specific snake has collected food
+        function checkSnakeFoodCollection(snake) {
+            // 只要蛇存活就允许吃食物（无论invulnerableTime）
+            if (!snake.alive) return;
+            const head = snake.segments[0];
+            const thickness = CELL_SIZE;
+            for (let i = 0; i < foods.length; i++) {
+                const food = foods[i];
+                const baseSize = CELL_SIZE;
+                let foodSize = baseSize;
+                if (food.type.points >= 20) {
+                    foodSize = baseSize * 1.5;
+                } else if (food.type.points >= 10) {
+                    foodSize = baseSize * 1.2;
+                } else if (food.type.points >= 5) {
+                    foodSize = baseSize * 0.9;
+                } else if (food.type.points >= 3) {
+                    foodSize = baseSize * 0.7;
+                } else {
+                    foodSize = baseSize * 0.5;
+                }
+                const eatDist = (thickness + foodSize) / 2;
+                const dx = head.x - food.x;
+                const dy = head.y - food.y;
+                if (Math.sqrt(dx * dx + dy * dy) < eatDist) {
+                    // Grow snake - ensure all food makes snake longer, none make it shorter
+                    for (let j = 0; j < food.type.grow; j++) {
+                        snake.segments.push({ ...snake.segments[snake.segments.length - 1] });
+                    }
+                    // Handle speed boost food
+                    if (food.type.speedBoost) {
+                        snake.speedBoost = true;
+                        snake.speedBoostTime = 200; // 200 game ticks
+                    }
+                    // Remove collected food
+                    foods.splice(i, 1);
+                    return;
+                }
+            }
+            // If no food was collected, remove the tail
+            if (!snake.speedBoost) { // Don't remove tail when speed boosted
+                snake.segments.pop();
+            }
+        }
+        
+        // Draw everything
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 0.5;
+            
+            const startX = viewX % CELL_SIZE;
+            const startY = viewY % CELL_SIZE;
+            
+            for (let x = -startX; x < canvas.width; x += CELL_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = -startY; y < canvas.height; y += CELL_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw foods
+            for (const food of foods) {
+                const screenX = food.x - viewX;
+                const screenY = food.y - viewY;
+                
+                if (screenX >= -CELL_SIZE && screenX <= canvas.width &&
+                    screenY >= -CELL_SIZE && screenY <= canvas.height) {
+                    ctx.fillStyle = food.type.color;
+                    ctx.beginPath();
+                    
+                    // Calculate food size based on energy content
+                    const baseSize = CELL_SIZE;
+                    let foodSize = baseSize;
+                    
+                    // Determine size based on food type energy
+                    if (food.type.points >= 20) {
+                        foodSize = baseSize * 1.5; // Biggest food
+                    } else if (food.type.points >= 10) {
+                        foodSize = baseSize * 1.2;
+                    } else if (food.type.points >= 5) {
+                        foodSize = baseSize * 0.9;
+                    } else if (food.type.points >= 3) {
+                        foodSize = baseSize * 0.7;
+                    } else {
+                        foodSize = baseSize * 0.5; // Smallest food
+                    }
+                    
+                    const offset = (baseSize - foodSize) / 2;
+                    
+                    if (food.type.split) {
+                        // Special shape for split food
+                        ctx.moveTo(screenX + baseSize/2, screenY + offset);
+                        ctx.lineTo(screenX + baseSize - offset, screenY + baseSize/2);
+                        ctx.lineTo(screenX + baseSize/2, screenY + baseSize - offset);
+                        ctx.lineTo(screenX + offset, screenY + baseSize/2);
+                        ctx.closePath();
+                    } else if (food.type.speedBoost) {
+                        // Special shape for speed boost food
+                        ctx.arc(screenX + baseSize/2, screenY + baseSize/2, foodSize/2, 0, Math.PI * 2);
+                        // Draw lightning bolt
+                        ctx.fillStyle = '#000';
+                        ctx.beginPath();
+                        ctx.moveTo(screenX + baseSize/2, screenY + baseSize/4);
+                        ctx.lineTo(screenX + baseSize/2 + baseSize/4, screenY + baseSize/2);
+                        ctx.lineTo(screenX + baseSize/2, screenY + baseSize/2 + baseSize/4);
+                        ctx.lineTo(screenX + baseSize/2 - baseSize/6, screenY + baseSize/2);
+                        ctx.lineTo(screenX + baseSize/2 + baseSize/6, screenY + baseSize/2 - baseSize/4);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.fillStyle = food.type.color;
+                    } else {
+                        // Regular circular food
+                        ctx.arc(screenX + baseSize/2 + offset, screenY + baseSize/2 + offset, foodSize/2, 0, Math.PI * 2);
+                    }
+                    
+                    ctx.fill();
+                }
+            }
+            
+            // Draw player snake
+            if (playerSnake.alive) {
+                drawSnake(playerSnake);
+            }
+            
+            // Draw AI snakes
+            for (const snake of aiSnakes) {
+                if (snake.alive) {
+                    drawSnake(snake);
+                }
+            }
+        }
+        
+        // Draw a snake
+        function drawSnake(snake) {
+            // 所有蛇身体宽度恒定为CELL_SIZE
+            const thickness = CELL_SIZE;
+            const offset = 0;
+            for (let i = 0; i < snake.segments.length; i++) {
+                const segment = snake.segments[i];
+                const screenX = segment.x - viewX;
+                const screenY = segment.y - viewY;
+                if (screenX >= -CELL_SIZE && screenX <= canvas.width &&
+                    screenY >= -CELL_SIZE && screenY <= canvas.height) {
+                    if (snake.isPlayer) {
+                        // 为主玩家蛇创建更流畅的彩虹渐变效果
+                        // 使用正弦函数创建更平滑的颜色过渡
+                        const hue = (i * 3 + Date.now() / 20) % 360;
+                        const saturation = 100; // 饱和度保持100%
+                        // 亮度根据位置变化，头部更亮，尾部稍暗
+                        const lightness = 40 + 20 * Math.sin(i * 0.2 + Date.now() / 500);
+                        ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                    } else if (i === 0) {
+                        ctx.fillStyle = snake.color;
+                    } else {
+                        // Body segments get darker towards the tail
+                        const darkness = Math.min(0.8, 0.2 + 0.6 * (i / snake.segments.length));
+                        const hex = snake.color.replace('#', '');
+                        const r = Math.floor(parseInt(hex.substr(0, 2), 16) * (1 - darkness));
+                        const g = Math.floor(parseInt(hex.substr(2, 2), 16) * (1 - darkness));
+                        const b = Math.floor(parseInt(hex.substr(4, 2), 16) * (1 - darkness));
+                        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    }
+                    ctx.fillRect(screenX + offset, screenY + offset, thickness, thickness);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(screenX + offset, screenY + offset, thickness, thickness);
+                    if (snake.invulnerableTime > 0) {
+                        const pulse = Math.sin(Date.now() / 100) * 0.5 + 0.5;
+                        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 * pulse})`;
+                        ctx.fillRect(screenX + offset, screenY + offset, thickness, thickness);
+                    }
+                }
+            }
+            // Draw speed boost effect
+            if (snake.speedBoost) {
+                const head = snake.segments[0];
+                const screenX = head.x - viewX;
+                const screenY = head.y - viewY;
+                if (screenX >= -CELL_SIZE && screenX <= canvas.width &&
+                    screenY >= -CELL_SIZE && screenY <= canvas.height) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(screenX + CELL_SIZE/2, screenY + CELL_SIZE/2, CELL_SIZE, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // Handle game over
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            
+            // Show game over message
+            const instructions = document.getElementById('instructions');
+            instructions.innerHTML = `
+                <h2>游戏结束!</h2>
+                <p>游戏已结束</p>
+                <p>剩余AI蛇数量: ${aiSnakes.filter(s => s.alive).length}</p>
+                <button id="restartButton">再玩一次</button>
+            `;
+            instructions.classList.remove('hidden');
+            
+            document.getElementById('restartButton').addEventListener('click', function() {
+                instructions.classList.add('hidden');
+                init();
+            });
+        }
+        
+        // Set up game controls
+        function setupControls() {
+            // Keyboard controls
+            const keys = {};
+            
+            window.addEventListener('keydown', function(e) {
+                keys[e.key] = true;
+                
+                // Prevent arrow keys from scrolling the page
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                    e.preventDefault();
+                }
+                
+                // Speed boost with spacebar
+                if (e.key === ' ') {
+                    activateSpeedBoost();
+                }
+            });
+            
+            window.addEventListener('keyup', function(e) {
+                keys[e.key] = false;
+                
+                // Release speed boost
+                if (e.key === ' ') {
+                    deactivateSpeedBoost();
+                }
+            });
+            
+            // Continuous key checking
+            setInterval(function() {
+                if (!gameRunning) return;
+                
+                // Update player direction based on keys
+                if (keys['ArrowUp'] && playerSnake.direction.y === 0) {
+                    playerSnake.nextDirection = { x: 0, y: -1 };
+                } else if (keys['ArrowDown'] && playerSnake.direction.y === 0) {
+                    playerSnake.nextDirection = { x: 0, y: 1 };
+                } else if (keys['ArrowLeft'] && playerSnake.direction.x === 0) {
+                    playerSnake.nextDirection = { x: -1, y: 0 };
+                } else if (keys['ArrowRight'] && playerSnake.direction.x === 0) {
+                    playerSnake.nextDirection = { x: 1, y: 0 };
+                }
+            }, 50);
+            
+            // On-screen controls
+            document.querySelector('.d-pad-btn.up').addEventListener('click', function() {
+                if (playerSnake.direction.y === 0) {
+                    playerSnake.nextDirection = { x: 0, y: -1 };
+                }
+            });
+            
+            document.querySelector('.d-pad-btn.down').addEventListener('click', function() {
+                if (playerSnake.direction.y === 0) {
+                    playerSnake.nextDirection = { x: 0, y: 1 };
+                }
+            });
+            
+            document.querySelector('.d-pad-btn.left').addEventListener('click', function() {
+                if (playerSnake.direction.x === 0) {
+                    playerSnake.nextDirection = { x: -1, y: 0 };
+                }
+            });
+            
+            document.querySelector('.d-pad-btn.right').addEventListener('click', function() {
+                if (playerSnake.direction.x === 0) {
+                    playerSnake.nextDirection = { x: 1, y: 0 };
+                }
+            });
+            
+            // Speed boost button
+            const speedBoostBtn = document.getElementById('speedBoost');
+            
+            // For touch devices
+            speedBoostBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                activateSpeedBoost();
+            });
+            
+            speedBoostBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                deactivateSpeedBoost();
+            });
+            
+            // For mouse
+            speedBoostBtn.addEventListener('mousedown', function() {
+                activateSpeedBoost();
+            });
+            
+            speedBoostBtn.addEventListener('mouseup', function() {
+                deactivateSpeedBoost();
+            });
+            
+            speedBoostBtn.addEventListener('mouseleave', function() {
+                if (speedBoostActive) {
+                    deactivateSpeedBoost();
+                }
+            });
+        }
+        
+        // Activate speed boost
+        function activateSpeedBoost() {
+            if (speedBoostActive) return;
+            
+            speedBoostActive = true;
+            currentSpeed = BOOST_SPEED;
+            clearInterval(gameLoop);
+            gameLoop = setInterval(update, currentSpeed);
+        }
+        
+        // Deactivate speed boost
+        function deactivateSpeedBoost() {
+            if (!speedBoostActive) return;
+            
+            speedBoostActive = false;
+            currentSpeed = BASE_SPEED;
+            clearInterval(gameLoop);
+            gameLoop = setInterval(update, currentSpeed);
+        }
+        
+        // Resize canvas to fit window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        // Start button event
+        document.getElementById('startButton').addEventListener('click', function() {
+            document.getElementById('instructions').classList.add('hidden');
+            init();
+        });
+    </script>
+</body>
+</html>
