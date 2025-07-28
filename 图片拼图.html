@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片拼图游戏</title>
+    <title>PDF拼图游戏</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -151,6 +152,8 @@
             touch-action: manipulation; /* Prevents double-tap zoom on mobile */
             width: 100%;
             height: 100%;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
 
         .puzzle-piece:hover {
@@ -213,7 +216,7 @@
             gap: 10px;
         }
 
-        #image-upload {
+        #file-upload {
             padding: 10px;
             border: 2px dashed #667eea;
             border-radius: 10px;
@@ -222,7 +225,7 @@
             margin: 10px 0;
         }
 
-        #image-upload::-webkit-file-upload-button {
+        #file-upload::-webkit-file-upload-button {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
             border: none;
@@ -230,6 +233,47 @@
             border-radius: 50px;
             cursor: pointer;
             font-weight: bold;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            margin-top: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .mobile-hint {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            margin: 15px 0;
+            text-align: left;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .mobile-hint ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+
+        .mobile-hint li {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
         }
 
         @media (max-width: 768px) {
@@ -323,11 +367,26 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎨 图片拼图游戏</h1>
+        <h1>📚 PDF拼图游戏</h1>
         
         <div id="upload-section">
-            <p>上传一张图片来创建一个拼图：</p>
-            <input type="file" id="image-upload" accept="image/*">
+            <p>上传一个PDF或者图片文件来创建拼图关卡：</p>
+            <input type="file" id="file-upload" accept=".pdf,image/*" multiple>
+            
+            <div class="mobile-hint" id="mobile-hint">
+                <p>🎯 游戏规则：</p>
+                <ul>
+                    <li>点击两个拼图碎片可交换位置</li>
+                    <li>将所有碎片移动到正确位置完成拼图</li>
+                    <li>双击拼图碎片可以查看完整分辨率的图像</li>
+                    <li>完成当前关卡后可解锁下一关</li>
+                </ul>
+            </div>
+            
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+                <div class="progress-text" id="progress-text">处理中... 0%</div>
+            </div>
             
             <div id="difficulty-section">
                 <h3>选择难度</h3>
@@ -350,40 +409,81 @@
             <div class="puzzle-board" id="puzzle-board"></div>
             <div id="message"></div>
             <div id="controls">
+                <button id="prev-btn">⬅️ 上一关</button>
                 <button id="restart-btn">🔄 重新开始</button>
-                <button id="new-image-btn">🖼️ 新图片</button>
+                <button id="next-btn">下一关 ➡️</button>
+                <button id="new-file-btn">📁 新文件</button>
             </div>
         </div>
     </div>
 
+    <!-- Modal for viewing full image or piece -->
+    <div id="image-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow: auto;">
+        <span id="close-modal" style="position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer;">&times;</span>
+        <img id="modal-image" style="display: block; margin: auto; max-width: 90%; max-height: 90%; margin-top: 50px;">
+        <div id="modal-caption" style="margin: auto; display: block; width: 80%; max-width: 700px; text-align: center; color: white; padding: 10px 0;"></div>
+    </div>
+
     <script>
+        // Set the worker URL for PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        
+        // Check if user is on mobile device
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        // Show mobile hint if on mobile device
+        if (isMobileDevice()) {
+            document.getElementById('mobile-hint').style.display = 'block';
+        } else {
+            document.getElementById('mobile-hint').style.display = 'block'; // Always show game rules
+        }
+        
         // Game variables
         let puzzlePieces = [];
         let gameStarted = false;
-        let originalImage = null;
+        let originalImages = []; // Array to store all images from PDF pages
         let selectedPieceIndex = null;
         let rows = 4;
         let cols = 4;
         let totalPieces = 16;
+        let currentLevel = 0; // Current level (PDF page)
+        let totalLevels = 0; // Total number of PDF pages
+        let highResPieces = []; // Store high resolution pieces
 
         // DOM elements
         const uploadSection = document.getElementById('upload-section');
         const puzzleContainer = document.getElementById('puzzle-container');
         const puzzleBoard = document.getElementById('puzzle-board');
         const messageElement = document.getElementById('message');
-        const imageUpload = document.getElementById('image-upload');
+        const fileUpload = document.getElementById('file-upload');
         const restartBtn = document.getElementById('restart-btn');
-        const newImageBtn = document.getElementById('new-image-btn');
+        const newFileBtn = document.getElementById('new-file-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
         const difficultyButtons = document.querySelectorAll('.difficulty-btn');
         const rowsInput = document.getElementById('rows-input');
         const colsInput = document.getElementById('cols-input');
         const applyCustomBtn = document.getElementById('apply-custom');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeModal = document.getElementById('close-modal');
+        const modalCaption = document.getElementById('modal-caption');
 
         // Event listeners
-        imageUpload.addEventListener('change', handleImageUpload);
+        fileUpload.addEventListener('change', handleFileUpload);
         restartBtn.addEventListener('click', restartGame);
-        newImageBtn.addEventListener('click', newImage);
+        newFileBtn.addEventListener('click', newFile);
+        prevBtn.addEventListener('click', goToPrevLevel);
+        nextBtn.addEventListener('click', goToNextLevel);
         applyCustomBtn.addEventListener('click', applyCustomDifficulty);
+        closeModal.addEventListener('click', () => {
+            imageModal.style.display = 'none';
+        });
 
         // Difficulty buttons event listeners
         difficultyButtons.forEach(button => {
@@ -396,6 +496,13 @@
                 totalPieces = rows * cols;
                 rowsInput.value = rows;
                 colsInput.value = cols;
+                
+                // If game has started, restart with new difficulty
+                if (gameStarted) {
+                    createPuzzlePieces();
+                    shufflePuzzle();
+                    renderPuzzle();
+                }
             });
         });
 
@@ -415,33 +522,113 @@
             
             // Remove active class from all difficulty buttons
             difficultyButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // If game has started, restart with new difficulty
+            if (gameStarted) {
+                createPuzzlePieces();
+                shufflePuzzle();
+                renderPuzzle();
+            }
         }
 
-        // Handle image upload
-        function handleImageUpload(event) {
+        // Handle file upload (PDF or image)
+        function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            if (file.type === 'application/pdf') {
+                handlePdfUpload(file);
+            } else if (file.type.startsWith('image/')) {
+                handleImageUpload(file);
+            } else {
+                alert('请上传PDF文件或图片文件');
+                fileUpload.value = '';
+            }
+            
+            // Reset highResPieces array
+            highResPieces = [];
+        }
+
+        // Handle PDF upload
+        async function handlePdfUpload(file) {
+            progressContainer.style.display = 'block';
+            progressText.textContent = '处理中... 0%';
+            progressBar.style.width = '0%';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                totalLevels = pdf.numPages;
+                originalImages = [];
+
+                for (let i = 1; i <= totalLevels; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 2.0 });
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+                    
+                    const img = new Image();
+                    img.src = canvas.toDataURL();
+                    originalImages.push(img);
+                    
+                    // Update progress
+                    const progress = Math.round((i / totalLevels) * 100);
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = `处理中... ${progress}%`;
+                }
+                
+                // Hide progress and start game
+                progressContainer.style.display = 'none';
+                currentLevel = 0;
+                uploadSection.style.display = 'none';
+                puzzleContainer.style.display = 'block';
+                createPuzzlePieces();
+                shufflePuzzle();
+                renderPuzzle();
+                gameStarted = true;
+                updateMessage();
+            } catch (error) {
+                console.error('Error processing PDF:', error);
+                alert('处理PDF文件时出错，请确保文件格式正确');
+                progressContainer.style.display = 'none';
+                fileUpload.value = '';
+            }
+        }
+
+        // Handle single image upload
+        function handleImageUpload(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                originalImage = new Image();
-                originalImage.onload = function() {
+                const img = new Image();
+                img.onload = function() {
+                    originalImages = [img];
+                    totalLevels = 1;
+                    currentLevel = 0;
                     uploadSection.style.display = 'none';
                     puzzleContainer.style.display = 'block';
                     createPuzzlePieces();
                     shufflePuzzle();
                     renderPuzzle();
                     gameStarted = true;
-                    messageElement.textContent = '🎯 点击两个碎片交换位置，完成拼图！';
+                    updateMessage();
                 };
-                originalImage.src = e.target.result;
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
-        // Create puzzle pieces from the uploaded image
+        // Create puzzle pieces from the current level image
         function createPuzzlePieces() {
             puzzlePieces = [];
+            const originalImage = originalImages[currentLevel];
             const pieceWidth = originalImage.width / cols;
             const pieceHeight = originalImage.height / rows;
             const containerSize = Math.min(window.innerWidth * 0.9, 420);
@@ -452,12 +639,13 @@
 
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < cols; col++) {
+                    // Create canvas for puzzle piece at display resolution
                     const canvas = document.createElement('canvas');
                     canvas.width = pieceSize;
                     canvas.height = pieceSize;
                     const ctx = canvas.getContext('2d');
                     
-                    // Draw the image piece on the canvas
+                    // Draw the image piece on the canvas at full resolution
                     ctx.drawImage(
                         originalImage,
                         col * pieceWidth,
@@ -523,12 +711,42 @@
                 pieceElement.appendChild(piece.element);
                 pieceElement.addEventListener('click', () => handlePieceClick(index));
                 
+                // Replace double-click with long press for viewing piece detail
+                let pressTimer;
+                pieceElement.addEventListener('touchstart', (e) => {
+                    pressTimer = setTimeout(() => {
+                        showPieceDetail(index);
+                    }, 500); // 500ms for long press
+                });
+                
+                pieceElement.addEventListener('touchend', () => {
+                    clearTimeout(pressTimer);
+                });
+                
+                pieceElement.addEventListener('touchmove', () => {
+                    clearTimeout(pressTimer);
+                });
+                
+                pieceElement.addEventListener('mousedown', (e) => {
+                    pressTimer = setTimeout(() => {
+                        showPieceDetail(index);
+                    }, 500); // 500ms for long press
+                });
+                
+                pieceElement.addEventListener('mouseup', () => {
+                    clearTimeout(pressTimer);
+                });
+                
+                pieceElement.addEventListener('mouseleave', () => {
+                    clearTimeout(pressTimer);
+                });
+                
                 puzzleBoard.appendChild(pieceElement);
             });
             
             updateMessage();
+            updateLevelControls();
         }
-
 
         // Update message based on game state
         function updateMessage() {
@@ -537,17 +755,73 @@
             ).length;
             
             if (correctCount === totalPieces) {
-                messageElement.textContent = '🎉 恭喜！拼图完成！';
-                messageElement.style.color = '#28a745';
-                messageElement.style.fontSize = '1.5rem';
+                if (currentLevel === totalLevels - 1) {
+                    // Last level completed
+                    messageElement.innerHTML = '🎉 恭喜！所有关卡完成，闯关成功！<br><span style="font-size: 1rem; cursor: pointer; text-decoration: underline;" id="view-full-image">点击查看完整图片</span>';
+                    messageElement.style.color = '#28a745';
+                    messageElement.style.fontSize = '1.5rem';
+                    document.getElementById('view-full-image').addEventListener('click', showFullImage);
+                } else {
+                    // Level completed but not the last one
+                    messageElement.innerHTML = `🎉 第${currentLevel + 1}关完成！还有${totalLevels - currentLevel - 1}关<br><span style="font-size: 1rem; cursor: pointer; text-decoration: underline;" id="view-full-image">点击查看完整图片</span>`;
+                    messageElement.style.color = '#28a745';
+                    messageElement.style.fontSize = '1.3rem';
+                    document.getElementById('view-full-image').addEventListener('click', showFullImage);
+                }
             } else {
-                messageElement.textContent = `🎯 点击两个碎片交换位置，完成拼图！(${correctCount}/${totalPieces})`;
+                messageElement.textContent = `🎯 点击两个碎片交换位置，完成拼图！第${currentLevel + 1}/${totalLevels}关 (${correctCount}/${totalPieces})`;
                 messageElement.style.color = '#333';
                 messageElement.style.fontSize = '1.3rem';
             }
         }
 
-        // Restart the current game
+        // Update level navigation controls
+        function updateLevelControls() {
+            prevBtn.disabled = currentLevel === 0;
+            nextBtn.disabled = currentLevel === totalLevels - 1 || 
+                              !puzzlePieces.every(piece => piece.correctPosition === piece.currentPosition);
+        }
+
+        // Go to previous level
+        function goToPrevLevel() {
+            if (currentLevel > 0) {
+                currentLevel--;
+                selectedPieceIndex = null;
+                createPuzzlePieces();
+                shufflePuzzle();
+                renderPuzzle();
+            }
+        }
+
+        // Go to next level
+        function goToNextLevel() {
+            if (currentLevel < totalLevels - 1) {
+                const isCurrentLevelComplete = puzzlePieces.every(piece => 
+                    piece.correctPosition === piece.currentPosition
+                );
+                
+                if (isCurrentLevelComplete) {
+                    currentLevel++;
+                    selectedPieceIndex = null;
+                    createPuzzlePieces();
+                    shufflePuzzle();
+                    renderPuzzle();
+                }
+            }
+        }
+        
+        // Add event listener for double-click zoom on modal image
+        modalImage.addEventListener('dblclick', function(e) {
+            if (this.style.maxWidth === '90%') {
+                this.style.maxWidth = '100%';
+                this.style.maxHeight = '100%';
+            } else {
+                this.style.maxWidth = '90%';
+                this.style.maxHeight = '90%';
+            }
+        });
+
+        // Restart the current level
         function restartGame() {
             if (!gameStarted) return;
             
@@ -556,21 +830,24 @@
             renderPuzzle();
         }
 
-        // Start a new game with a different image
-        function newImage() {
+        // Start a new game with a different file
+        function newFile() {
             // Reset UI
             puzzleContainer.style.display = 'none';
             uploadSection.style.display = 'block';
             messageElement.textContent = '';
+            progressContainer.style.display = 'none';
             
             // Reset game state
             puzzlePieces = [];
             gameStarted = false;
-            originalImage = null;
+            originalImages = [];
             selectedPieceIndex = null;
+            currentLevel = 0;
+            totalLevels = 0;
             
             // Clear file input
-            imageUpload.value = '';
+            fileUpload.value = '';
         }
         
         // Handle piece click
@@ -601,20 +878,78 @@
             puzzlePieces[index2].currentPosition = index2;
         }
 
-        // Check if the player has won
+        // Check if the player has won the current level
         function checkWin() {
             const isWin = puzzlePieces.every(piece => 
                 piece.correctPosition === piece.currentPosition
             );
             
             if (isWin) {
-                messageElement.textContent = '🎉 恭喜！拼图完成！';
-                messageElement.style.color = '#28a745';
-                messageElement.style.fontSize = '1.5rem';
-                
                 // Add celebration effect
                 puzzleBoard.querySelectorAll('.puzzle-piece').forEach(piece => {
                     piece.classList.add('correct');
+                });
+                
+                updateMessage();
+                updateLevelControls();
+            }
+        }
+
+        // Show piece detail (now shows the same image as in the puzzle)
+        function showPieceDetail(index) {
+            const piece = puzzlePieces[index];
+            const originalImage = originalImages[currentLevel];
+            
+            // Calculate the exact position and size of the piece in the original image
+            const pieceWidth = originalImage.width / cols;
+            const pieceHeight = originalImage.height / rows;
+            const sourceX = piece.colIndex * pieceWidth;
+            const sourceY = piece.rowIndex * pieceHeight;
+            
+            // Create a canvas with the original resolution of the piece
+            const canvas = document.createElement('canvas');
+            canvas.width = pieceWidth;
+            canvas.height = pieceHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw the piece at original resolution
+            ctx.drawImage(
+                originalImage,
+                sourceX,
+                sourceY,
+                pieceWidth,
+                pieceHeight,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+            
+            modalImage.src = canvas.toDataURL();
+            modalCaption.textContent = `拼图碎片 ${index + 1}`;
+            imageModal.style.display = 'block';
+        }
+
+        // Show full image when puzzle is completed
+        function showFullImage() {
+            const isCompleted = puzzlePieces.every(piece => 
+                piece.correctPosition === piece.currentPosition
+            );
+            
+            if (isCompleted) {
+                modalImage.src = originalImages[currentLevel].src;
+                modalCaption.textContent = `完整图片 - 第${currentLevel + 1}关`;
+                imageModal.style.display = 'block';
+                
+                // Add double click to zoom functionality
+                modalImage.addEventListener('dblclick', function zoomImage(e) {
+                    if (this.style.maxWidth === '90%') {
+                        this.style.maxWidth = '100%';
+                        this.style.maxHeight = '100%';
+                    } else {
+                        this.style.maxWidth = '90%';
+                        this.style.maxHeight = '90%';
+                    }
                 });
             }
         }
@@ -622,9 +957,20 @@
         // Handle window resize for responsive design
         window.addEventListener('resize', () => {
             if (gameStarted) {
-                createPuzzlePieces();
-                shufflePuzzle();
-                renderPuzzle();
+                // Only reshuffle if the actual board dimensions have changed significantly
+                const containerSize = Math.min(window.innerWidth * 0.9, 420);
+                const pieceSize = containerSize / cols;
+                
+                // Get the first puzzle piece to check if size has changed
+                const firstPiece = document.querySelector('.puzzle-piece');
+                if (firstPiece) {
+                    const currentSize = firstPiece.offsetWidth;
+                    // Only reshuffle if there's a significant size change (>5px difference)
+                    if (Math.abs(currentSize - pieceSize) > 5) {
+                        createPuzzlePieces();
+                        renderPuzzle();
+                    }
+                }
             }
         });
     </script>
