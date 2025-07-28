@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片拼图游戏</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #upload-section {
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        #difficulty-section {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: rgba(109, 93, 255, 0.1);
+            border-radius: 10px;
+            width: 100%;
+        }
+
+        #difficulty-section h3 {
+            margin-top: 0;
+            color: #5d5dff;
+        }
+
+        .difficulty-options {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .difficulty-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.9rem;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .difficulty-btn.active {
+            background: linear-gradient(45deg, #ff9a9e, #fad0c4);
+            transform: scale(1.1);
+        }
+
+        .difficulty-btn:hover:not(.active) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .difficulty-btn:active {
+            transform: translateY(1px);
+        }
+
+        #custom-difficulty {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        #custom-difficulty input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        #puzzle-container {
+            display: none;
+            margin: 20px auto;
+            width: 100%;
+        }
+
+        .puzzle-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 4px;
+            gap: 4px;
+            margin: 20px auto;
+            border: 3px solid #5d5dff;
+            background-color: #5d5dff;
+            border-radius: 8px;
+            padding: 4px;
+            max-width: 420px;
+            width: 100%;
+            aspect-ratio: 1/1;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .puzzle-piece {
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-radius: 4px;
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+            width: 100%;
+            height: 100%;
+        }
+
+        .puzzle-piece:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .puzzle-piece.selected {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 3px #ffeb3b, 0 0 0 6px #ff9800;
+            z-index: 20;
+        }
+
+        .puzzle-piece.correct {
+            box-shadow: 0 0 0 3px #4caf50;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 1rem;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            font-weight: bold;
+            min-width: 120px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        #message {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 20px 0;
+            min-height: 30px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        #controls {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #image-upload {
+            padding: 10px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        #image-upload::-webkit-file-upload-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+                width: 95%;
+            }
+            
+            h1 {
+                font-size: 1.7rem;
+            }
+            
+            .puzzle-board {
+                max-width: 90vw;
+                grid-gap: 2px;
+                gap: 2px;
+                padding: 2px;
+                border-width: 2px;
+            }
+            
+            button {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+                margin: 8px 3px;
+                min-width: 100px;
+            }
+            
+            #message {
+                font-size: 1.1rem;
+            }
+            
+            .difficulty-options {
+                gap: 5px;
+            }
+            
+            .difficulty-btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+                margin: 3px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .container {
+                padding: 15px 10px;
+            }
+            
+            button {
+                padding: 8px 16px;
+                font-size: 0.8rem;
+                min-width: 90px;
+            }
+            
+            #message {
+                font-size: 1rem;
+            }
+            
+            #controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            #controls button {
+                width: 80%;
+                max-width: 200px;
+            }
+            
+            #custom-difficulty input {
+                width: 50px;
+                padding: 6px;
+                font-size: 0.9rem;
+            }
+            
+            .puzzle-board {
+                max-width: 95vw;
+                grid-gap: 1px;
+                gap: 1px;
+                padding: 1px;
+                border-width: 1px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 图片拼图游戏</h1>
+        
+        <div id="upload-section">
+            <p>上传一张图片来创建一个拼图：</p>
+            <input type="file" id="image-upload" accept="image/*">
+            
+            <div id="difficulty-section">
+                <h3>选择难度</h3>
+                <div class="difficulty-options">
+                    <button class="difficulty-btn active" data-difficulty="3">简单 (3×3)</button>
+                    <button class="difficulty-btn" data-difficulty="4">中等 (4×4)</button>
+                    <button class="difficulty-btn" data-difficulty="5">困难 (5×5)</button>
+                    <button class="difficulty-btn" data-difficulty="6">专家 (6×6)</button>
+                </div>
+                <div id="custom-difficulty">
+                    <span>自定义:</span>
+                    <input type="number" id="rows-input" min="2" max="10" value="4" placeholder="行">
+                    <input type="number" id="cols-input" min="2" max="10" value="4" placeholder="列">
+                    <button id="apply-custom">应用</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="puzzle-container">
+            <div class="puzzle-board" id="puzzle-board"></div>
+            <div id="message"></div>
+            <div id="controls">
+                <button id="restart-btn">🔄 重新开始</button>
+                <button id="new-image-btn">🖼️ 新图片</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let puzzlePieces = [];
+        let gameStarted = false;
+        let originalImage = null;
+        let selectedPieceIndex = null;
+        let rows = 4;
+        let cols = 4;
+        let totalPieces = 16;
+
+        // DOM elements
+        const uploadSection = document.getElementById('upload-section');
+        const puzzleContainer = document.getElementById('puzzle-container');
+        const puzzleBoard = document.getElementById('puzzle-board');
+        const messageElement = document.getElementById('message');
+        const imageUpload = document.getElementById('image-upload');
+        const restartBtn = document.getElementById('restart-btn');
+        const newImageBtn = document.getElementById('new-image-btn');
+        const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+        const rowsInput = document.getElementById('rows-input');
+        const colsInput = document.getElementById('cols-input');
+        const applyCustomBtn = document.getElementById('apply-custom');
+
+        // Event listeners
+        imageUpload.addEventListener('change', handleImageUpload);
+        restartBtn.addEventListener('click', restartGame);
+        newImageBtn.addEventListener('click', newImage);
+        applyCustomBtn.addEventListener('click', applyCustomDifficulty);
+
+        // Difficulty buttons event listeners
+        difficultyButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                difficultyButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const difficulty = parseInt(button.dataset.difficulty);
+                rows = difficulty;
+                cols = difficulty;
+                totalPieces = rows * cols;
+                rowsInput.value = rows;
+                colsInput.value = cols;
+            });
+        });
+
+        // Apply custom difficulty
+        function applyCustomDifficulty() {
+            const newRows = parseInt(rowsInput.value);
+            const newCols = parseInt(colsInput.value);
+            
+            if (isNaN(newRows) || isNaN(newCols) || newRows < 2 || newCols < 2 || newRows > 10 || newCols > 10) {
+                alert('请输入有效的行列数（2-10之间）');
+                return;
+            }
+            
+            rows = newRows;
+            cols = newCols;
+            totalPieces = rows * cols;
+            
+            // Remove active class from all difficulty buttons
+            difficultyButtons.forEach(btn => btn.classList.remove('active'));
+        }
+
+        // Handle image upload
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage = new Image();
+                originalImage.onload = function() {
+                    uploadSection.style.display = 'none';
+                    puzzleContainer.style.display = 'block';
+                    createPuzzlePieces();
+                    shufflePuzzle();
+                    renderPuzzle();
+                    gameStarted = true;
+                    messageElement.textContent = '🎯 点击两个碎片交换位置，完成拼图！';
+                };
+                originalImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Create puzzle pieces from the uploaded image
+        function createPuzzlePieces() {
+            puzzlePieces = [];
+            const pieceWidth = originalImage.width / cols;
+            const pieceHeight = originalImage.height / rows;
+            const containerSize = Math.min(window.innerWidth * 0.9, 420);
+            const pieceSize = containerSize / cols;
+
+            // Update puzzle board grid
+            puzzleBoard.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = pieceSize;
+                    canvas.height = pieceSize;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Draw the image piece on the canvas
+                    ctx.drawImage(
+                        originalImage,
+                        col * pieceWidth,
+                        row * pieceHeight,
+                        pieceWidth,
+                        pieceHeight,
+                        0,
+                        0,
+                        pieceSize,
+                        pieceSize
+                    );
+                    
+                    puzzlePieces.push({
+                        correctPosition: row * cols + col,
+                        currentPosition: row * cols + col,
+                        element: canvas,
+                        rowIndex: row,
+                        colIndex: col
+                    });
+                }
+            }
+        }
+
+        // Shuffle the puzzle pieces
+        function shufflePuzzle() {
+            // Make a certain number of valid moves to shuffle
+            for (let i = 0; i < 1000; i++) {
+                const randomIndex1 = Math.floor(Math.random() * totalPieces);
+                const randomIndex2 = Math.floor(Math.random() * totalPieces);
+                
+                if (randomIndex1 !== randomIndex2) {
+                    // Swap positions in the array
+                    [puzzlePieces[randomIndex1], puzzlePieces[randomIndex2]] = 
+                    [puzzlePieces[randomIndex2], puzzlePieces[randomIndex1]];
+                }
+            }
+            
+            // Update current positions
+            puzzlePieces.forEach((piece, index) => {
+                piece.currentPosition = index;
+            });
+        }
+
+        // Render the puzzle board
+        function renderPuzzle() {
+            puzzleBoard.innerHTML = '';
+            
+            puzzlePieces.forEach((piece, index) => {
+                const pieceElement = document.createElement('div');
+                pieceElement.className = 'puzzle-piece';
+                pieceElement.dataset.index = index;
+                
+                // Check if piece is in correct position
+                if (piece.correctPosition === piece.currentPosition) {
+                    pieceElement.classList.add('correct');
+                }
+                
+                // Add selected class if this piece is selected
+                if (index === selectedPieceIndex) {
+                    pieceElement.classList.add('selected');
+                }
+                
+                pieceElement.appendChild(piece.element);
+                pieceElement.addEventListener('click', () => handlePieceClick(index));
+                
+                puzzleBoard.appendChild(pieceElement);
+            });
+            
+            updateMessage();
+        }
+
+
+        // Update message based on game state
+        function updateMessage() {
+            const correctCount = puzzlePieces.filter(piece => 
+                piece.correctPosition === piece.currentPosition
+            ).length;
+            
+            if (correctCount === totalPieces) {
+                messageElement.textContent = '🎉 恭喜！拼图完成！';
+                messageElement.style.color = '#28a745';
+                messageElement.style.fontSize = '1.5rem';
+            } else {
+                messageElement.textContent = `🎯 点击两个碎片交换位置，完成拼图！(${correctCount}/${totalPieces})`;
+                messageElement.style.color = '#333';
+                messageElement.style.fontSize = '1.3rem';
+            }
+        }
+
+        // Restart the current game
+        function restartGame() {
+            if (!gameStarted) return;
+            
+            selectedPieceIndex = null;
+            shufflePuzzle();
+            renderPuzzle();
+        }
+
+        // Start a new game with a different image
+        function newImage() {
+            // Reset UI
+            puzzleContainer.style.display = 'none';
+            uploadSection.style.display = 'block';
+            messageElement.textContent = '';
+            
+            // Reset game state
+            puzzlePieces = [];
+            gameStarted = false;
+            originalImage = null;
+            selectedPieceIndex = null;
+            
+            // Clear file input
+            imageUpload.value = '';
+        }
+        
+        // Handle piece click
+        function handlePieceClick(index) {
+            if (selectedPieceIndex === null) {
+                // First piece selection
+                selectedPieceIndex = index;
+                renderPuzzle();
+            } else {
+                // Second piece selection - swap pieces
+                if (selectedPieceIndex !== index) {
+                    swapPieces(selectedPieceIndex, index);
+                }
+                selectedPieceIndex = null;
+                renderPuzzle();
+                checkWin();
+            }
+        }
+
+        // Swap two pieces
+        function swapPieces(index1, index2) {
+            // Swap positions in the array
+            [puzzlePieces[index1], puzzlePieces[index2]] = 
+            [puzzlePieces[index2], puzzlePieces[index1]];
+            
+            // Update current positions
+            puzzlePieces[index1].currentPosition = index1;
+            puzzlePieces[index2].currentPosition = index2;
+        }
+
+        // Check if the player has won
+        function checkWin() {
+            const isWin = puzzlePieces.every(piece => 
+                piece.correctPosition === piece.currentPosition
+            );
+            
+            if (isWin) {
+                messageElement.textContent = '🎉 恭喜！拼图完成！';
+                messageElement.style.color = '#28a745';
+                messageElement.style.fontSize = '1.5rem';
+                
+                // Add celebration effect
+                puzzleBoard.querySelectorAll('.puzzle-piece').forEach(piece => {
+                    piece.classList.add('correct');
+                });
+            }
+        }
+        
+        // Handle window resize for responsive design
+        window.addEventListener('resize', () => {
+            if (gameStarted) {
+                createPuzzlePieces();
+                shufflePuzzle();
+                renderPuzzle();
+            }
+        });
+    </script>
+</body>
+</html>
