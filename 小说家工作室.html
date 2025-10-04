@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小说家工作室</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2c3e50, #4a235a, #2c3e50);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 900px;
+            height: 85vh;
+            background-color: rgba(255, 255, 255, 0.92);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(to right, #4a235a, #6c3483);
+            color: #f8f9f9;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f9f9f9"/><path d="M0 0L100 100M100 0L0 100" stroke="%23eee" stroke-width="0.5"/></svg>');
+            background-size: cover;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 15px;
+            border-radius: 15px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: linear-gradient(to right, #4a235a, #7d3c98);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background: linear-gradient(to right, #f0f0f0, #e8f4f8);
+            color: #333;
+            border-bottom-left-radius: 5px;
+        }
+
+        .bot-message .image-container {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .bot-message .generated-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            cursor: zoom-in; /* Add cursor indicator */
+        }
+
+        /* Add styles for image modal */
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .image-modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 10px;
+        }
+
+        .close-image-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ddd;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 30px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input input:focus {
+            border-color: #7d3c98;
+        }
+
+        .chat-input button {
+            margin-left: 10px;
+            padding: 15px 25px;
+            background: linear-gradient(to right, #4a235a, #7d3c98);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .chat-input button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .chat-input button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .typing-indicator {
+            align-self: flex-start;
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .typing-indicator span {
+            height: 10px;
+            width: 10px;
+            float: left;
+            margin: 0 2px;
+            background-color: #9E9EA1;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+
+        .typing-indicator span:nth-of-type(1) {
+            animation: typing 1s infinite;
+        }
+
+        .typing-indicator span:nth-of-type(2) {
+            animation: typing 1s infinite 0.2s;
+        }
+
+        .typing-indicator span:nth-of-type(3) {
+            animation: typing 1s infinite 0.4s;
+        }
+
+        @keyframes typing {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .modal-body select, .modal-body input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+
+        /* 新增: 多API密钥输入框样式 */
+        .api-keys-container {
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .api-key-item {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .api-key-item input {
+            flex: 1;
+            margin-right: 5px;
+            padding: 8px;
+        }
+
+        .api-key-item button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+
+        .add-api-key-btn {
+            background: #4a235a;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        .save-btn {
+            padding: 10px 20px;
+            background: linear-gradient(to right, #4a235a, #7d3c98);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Add styles for loading state */
+        .loading-models {
+            color: #666;
+            font-style: italic;
+        }
+
+        /* Add styles for image model select */
+        .image-model-select {
+            margin-top: 10px;
+        }
+
+        .image-model-select select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+
+        /* 新增: 图像分辨率设置样式 */
+        .image-size-select {
+            margin-top: 10px;
+        }
+
+        .image-size-select select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+
+        /* 新增: 提示词侧边栏样式 */
+        .prompts-sidebar {
+            position: fixed;
+            top: 0;
+            right: -350px;
+            width: 300px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 1500;
+            transition: right 0.3s ease;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .prompts-sidebar.active {
+            right: 0;
+        }
+
+        .prompts-sidebar h3 {
+            color: #4a235a;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .prompt-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .prompt-text {
+            font-style: italic;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .toggle-prompts-btn {
+            position: fixed;
+            top: 20px;
+            /* 居中定位 */
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(to right, #4a235a, #7d3c98);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            z-index: 1600;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 95vh;
+                border-radius: 15px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .chat-header {
+                font-size: 1.2rem;
+                padding: 15px;
+            }
+            
+            /* 移动端适配 */
+            .prompts-sidebar {
+                width: 100%;
+                right: -100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <span>小说家工作室</span>
+            <div>
+                <button class="settings-btn" id="newChatBtn">新对话</button>
+                <button class="settings-btn" id="settingsBtn">设置</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                欢迎来到我的工作室。我是一位INFJ人格的小说家，专注于深度思考、角色塑造和故事创作。今天我们一起探讨什么故事呢？
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="分享你的故事想法或询问写作技巧..." autocomplete="off">
+            <button id="sendButton">发送</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>作家工作坊</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="systemPrompt">作者设定:</label>
+                <textarea id="systemPrompt" placeholder="请输入系统提示...">你是一个infj人格的小说家。</textarea>
+                
+                <!-- 修改: 多API密钥配置 -->
+                <label>API密钥:</label>
+                <div class="api-keys-container" id="apiKeysContainer">
+                    <!-- API密钥项将通过JavaScript动态添加 -->
+                </div>
+                <button class="add-api-key-btn" id="addApiKeyBtn">添加密钥</button>
+                
+                <label for="modelSelect">选择模型:</label>
+                <select id="modelSelect">
+                    <option value="">加载模型中...</option>
+                </select>
+                
+                <!-- Add image model selection -->
+                <label for="imageModelSelect">图像模型:</label>
+                <select id="imageModelSelect" class="image-model-select">
+                    <option value="">加载模型中...</option>
+                </select>
+                
+                <!-- Add image size selection -->
+                <label for="imageSizeSelect">图像分辨率:</label>
+                <select id="imageSizeSelect" class="image-size-select">
+                    <option value="512x512">512x512 (默认)</option>
+                    <option value="832x480">832x480 (横向)</option>
+                    <option value="480x832">480x832 (纵向)</option>
+                    <option value="720x1280">720x1280</option>
+                    <option value="1280x720">1024x768 (宽屏)</option>
+                    <option value="1024x1024">1024x1024</option>
+                    <option value="custom">自定义</option>
+                </select>
+                
+                <!-- Add custom image size inputs -->
+                <div id="customSizeContainer" style="display: none; margin-top: 10px;">
+                    <label>自定义分辨率:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="customWidth" placeholder="宽度" min="256" max="1024" style="flex: 1;">
+                        <span>x</span>
+                        <input type="number" id="customHeight" placeholder="高度" min="256" max="1024" style="flex: 1;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="save-btn" id="saveSettings">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增: 提示词侧边栏 -->
+    <div class="prompts-sidebar" id="promptsSidebar">
+        <h3>绘图提示词</h3>
+        <div id="promptsContainer"></div>
+    </div>
+
+    <!-- 新增: 切换提示词侧边栏按钮 -->
+    <button class="toggle-prompts-btn" id="togglePromptsBtn">提示词</button>
+
+    <script>
+        class ChatBot {
+            constructor() {
+                this.apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
+                this.modelsUrl = 'https://api.siliconflow.cn/v1/models'; // Add models endpoint
+                this.token = 'sk-gxzvenqjezxlevupsihmjvpzblmlsoyertobmwokxoyeumzu'; // Replace with your actual token
+                this.model = 'THUDM/GLM-4-9B-0414';
+                // Add image generation model
+                this.imageGenerationModel = 'black-forest-labs/FLUX.1-schnell';
+                // Add image size setting
+                this.imageSize = '512x512';
+                // Remove separate promptRefinementModel and use this.model instead
+                this.systemPrompt = '你是一个infj人格的小说家。';
+                this.conversationHistory = [];
+                
+                this.chatMessages = document.getElementById('chatMessages');
+                this.userInput = document.getElementById('userInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.typingIndicator = document.getElementById('typingIndicator');
+                
+                // Settings elements
+                this.settingsBtn = document.getElementById('settingsBtn');
+                this.settingsModal = document.getElementById('settingsModal');
+                this.closeBtn = document.querySelector('.close-btn');
+                this.systemPromptInput = document.getElementById('systemPrompt');
+                this.modelSelect = document.getElementById('modelSelect');
+                // Add image model select element
+                this.imageModelSelect = document.getElementById('imageModelSelect');
+                this.saveSettingsBtn = document.getElementById('saveSettings');
+                
+                // 新增: 多API密钥相关元素
+                this.apiKeysContainer = document.getElementById('apiKeysContainer');
+                this.addApiKeyBtn = document.getElementById('addApiKeyBtn');
+                
+                // Add image size elements
+                this.imageSizeSelect = document.getElementById('imageSizeSelect');
+                this.customSizeContainer = document.getElementById('customSizeContainer');
+                this.customWidthInput = document.getElementById('customWidth');
+                this.customHeightInput = document.getElementById('customHeight');
+                
+                // Current bot message element for streaming
+                this.currentBotMessageElement = null;
+                
+                // 新增: API密钥轮换相关属性
+                this.apiKeys = []; // 存储所有API密钥
+                this.currentApiKeyIndex = 0; // 当前使用的API密钥索引
+                
+                // 新增: 提示词相关元素
+                this.promptsSidebar = document.getElementById('promptsSidebar');
+                this.promptsContainer = document.getElementById('promptsContainer');
+                this.togglePromptsBtn = document.getElementById('togglePromptsBtn');
+                
+                this.initEventListeners();
+                this.loadSettings();
+            }
+            
+            initEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.userInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendMessage();
+                    }
+                });
+                
+                // Settings event listeners
+                this.settingsBtn.addEventListener('click', () => this.openSettings());
+                this.closeBtn.addEventListener('click', () => this.closeSettings());
+                this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
+                window.addEventListener('click', (e) => {
+                    if (e.target === this.settingsModal) {
+                        this.closeSettings();
+                    }
+                });
+                
+                // 修改: 添加新对话按钮事件监听器
+                document.getElementById('newChatBtn').addEventListener('click', () => this.startNewChat());
+                
+                // 新增: 添加API密钥按钮事件监听器
+                this.addApiKeyBtn.addEventListener('click', () => this.addApiKeyField());
+                
+                // 新增: 提示词侧边栏切换事件
+                this.togglePromptsBtn.addEventListener('click', () => this.togglePromptsSidebar());
+                
+                // Add event listener for image size selection
+                this.imageSizeSelect.addEventListener('change', () => this.toggleCustomSizeInput());
+            }
+            
+            loadSettings() {
+                const savedToken = localStorage.getItem('siliconflow_token');
+                const savedModel = localStorage.getItem('siliconflow_model');
+                const savedImageModel = localStorage.getItem('siliconflow_image_model');
+                const savedImageSize = localStorage.getItem('siliconflow_image_size');
+                const savedCustomWidth = localStorage.getItem('siliconflow_custom_width');
+                const savedCustomHeight = localStorage.getItem('siliconflow_custom_height');
+                const savedSystemPrompt = localStorage.getItem('siliconflow_system_prompt');
+                // 新增: 加载多API密钥
+                const savedApiKeys = localStorage.getItem('siliconflow_api_keys');
+                
+                if (savedToken) this.token = savedToken;
+                if (savedModel) this.model = savedModel;
+                if (savedImageModel) this.imageGenerationModel = savedImageModel;
+                if (savedImageSize) this.imageSize = savedImageSize;
+                if (savedSystemPrompt) this.systemPrompt = savedSystemPrompt;
+                // 新增: 解析并加载API密钥数组
+                if (savedApiKeys) {
+                    this.apiKeys = JSON.parse(savedApiKeys);
+                } else if (savedToken) {
+                    // 如果只有单个token，则初始化为数组
+                    this.apiKeys = [savedToken];
+                } else {
+                    // 默认值
+                    this.apiKeys = ['sk-gxzvenqjezxlevupsihmjvpzblmlsoyertobmwokxoyeumzu'];
+                }
+                
+                // Handle custom size
+                if (savedImageSize === 'custom' && savedCustomWidth && savedCustomHeight) {
+                    this.customWidthInput.value = savedCustomWidth;
+                    this.customHeightInput.value = savedCustomHeight;
+                }
+            }
+            
+            openSettings() {
+                this.systemPromptInput.value = this.systemPrompt;
+                this.modelSelect.value = this.model;
+                this.imageModelSelect.value = this.imageGenerationModel;
+                this.imageSizeSelect.value = this.imageSize === 'custom' ? 'custom' : this.imageSize;
+                
+                // 新增: 动态创建API密钥输入字段
+                this.apiKeysContainer.innerHTML = '';
+                this.apiKeys.forEach((key, index) => {
+                    this.createApiKeyField(key, index);
+                });
+                
+                // Set custom size values if needed
+                if (this.imageSize === 'custom') {
+                    const [width, height] = this.getCustomImageSize();
+                    this.customWidthInput.value = width;
+                    this.customHeightInput.value = height;
+                }
+                
+                this.settingsModal.style.display = 'flex';
+                
+                // Load models when opening settings
+                this.loadAvailableModels();
+                // Load image models when opening settings
+                this.loadAvailableImageModels();
+                
+                // Toggle custom size input visibility
+                this.toggleCustomSizeInput();
+            }
+            
+            closeSettings() {
+                this.settingsModal.style.display = 'none';
+            }
+            
+            // 新增: 创建API密钥输入字段
+            createApiKeyField(value = '', index = 0) {
+                const apiKeyItem = document.createElement('div');
+                apiKeyItem.className = 'api-key-item';
+                apiKeyItem.innerHTML = `
+                    <input type="password" placeholder="请输入您的API密钥..." value="${value}">
+                    <button type="button" class="remove-api-key-btn">&times;</button>
+                `;
+                
+                const removeBtn = apiKeyItem.querySelector('.remove-api-key-btn');
+                removeBtn.addEventListener('click', () => {
+                    if (this.apiKeysContainer.children.length > 1) {
+                        apiKeyItem.remove();
+                    }
+                });
+                
+                this.apiKeysContainer.appendChild(apiKeyItem);
+            }
+            
+            // 新增: 添加API密钥字段
+            addApiKeyField() {
+                this.createApiKeyField();
+            }
+            
+            // 新增: 获取当前轮换使用的API密钥
+            getCurrentApiKey() {
+                if (this.apiKeys.length === 0) {
+                    return '';
+                }
+                
+                const key = this.apiKeys[this.currentApiKeyIndex];
+                // 轮换到下一个密钥
+                this.currentApiKeyIndex = (this.currentApiKeyIndex + 1) % this.apiKeys.length;
+                return key;
+            }
+            
+            // 修改: 更新获取当前API密钥的方式
+            async loadAvailableModels() {
+                // Clear current options
+                this.modelSelect.innerHTML = '<option value="">加载模型中...</option>';
+                this.modelSelect.classList.add('loading-models');
+                
+                try {
+                    // 使用当前轮换的API密钥
+                    const response = await fetch(this.modelsUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${this.getCurrentApiKey()}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to load models: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Clear loading option
+                    this.modelSelect.innerHTML = '';
+                    this.modelSelect.classList.remove('loading-models');
+                    
+                    // Populate with actual models
+                    data.data.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.id;
+                        this.modelSelect.appendChild(option);
+                    });
+                    
+                    // Set selected model
+                    this.modelSelect.value = this.model;
+                } catch (error) {
+                    console.error('Error loading models:', error);
+                    this.modelSelect.innerHTML = '<option value="">加载模型失败</option>';
+                    this.modelSelect.classList.remove('loading-models');
+                }
+            }
+            
+            // 修改: 更新获取当前API密钥的方式
+            async loadAvailableImageModels() {
+                // Clear current options
+                this.imageModelSelect.innerHTML = '<option value="">加载模型中...</option>';
+                this.imageModelSelect.classList.add('loading-models');
+                
+                try {
+                    // 使用当前轮换的API密钥
+                    const response = await fetch(this.modelsUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${this.getCurrentApiKey()}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to load image models: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Clear loading option
+                    this.imageModelSelect.innerHTML = '';
+                    this.imageModelSelect.classList.remove('loading-models');
+                    
+                    // Remove filtering - list all available models
+                    data.data.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.id;
+                        this.imageModelSelect.appendChild(option);
+                    });
+                    
+                    // Set selected model
+                    this.imageModelSelect.value = this.imageGenerationModel;
+                } catch (error) {
+                    console.error('Error loading image models:', error);
+                    this.imageModelSelect.innerHTML = '<option value="">加载模型失败</option>';
+                    this.imageModelSelect.classList.remove('loading-models');
+                }
+            }
+            
+            saveSettings() {
+                this.systemPrompt = this.systemPromptInput.value;
+                // 修改: 保存所有API密钥而不是单个密钥
+                const apiKeyInputs = this.apiKeysContainer.querySelectorAll('input[type="password"]');
+                this.apiKeys = Array.from(apiKeyInputs)
+                    .map(input => input.value.trim())
+                    .filter(value => value !== '');
+                
+                // 如果没有密钥，则使用默认密钥
+                if (this.apiKeys.length === 0) {
+                    this.apiKeys = ['sk-gxzvenqjezxlevupsihmjvpzblmlsoyertobmwokxoyeumzu'];
+                }
+                
+                this.model = this.modelSelect.value;
+                this.imageGenerationModel = this.imageModelSelect.value;
+                
+                // Handle image size
+                if (this.imageSizeSelect.value === 'custom') {
+                    const width = this.customWidthInput.value || 512;
+                    const height = this.customHeightInput.value || 512;
+                    this.imageSize = `${width}x${height}`;
+                    
+                    // Save custom dimensions
+                    localStorage.setItem('siliconflow_custom_width', width);
+                    localStorage.setItem('siliconflow_custom_height', height);
+                } else {
+                    this.imageSize = this.imageSizeSelect.value;
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('siliconflow_api_keys', JSON.stringify(this.apiKeys));
+                localStorage.setItem('siliconflow_model', this.model);
+                localStorage.setItem('siliconflow_image_model', this.imageGenerationModel);
+                localStorage.setItem('siliconflow_image_size', this.imageSize);
+                localStorage.setItem('siliconflow_system_prompt', this.systemPrompt);
+                
+                this.closeSettings();
+            }
+            
+            // 新增: 切换自定义尺寸输入框显示
+            toggleCustomSizeInput() {
+                if (this.imageSizeSelect.value === 'custom') {
+                    this.customSizeContainer.style.display = 'block';
+                } else {
+                    this.customSizeContainer.style.display = 'none';
+                }
+            }
+            
+            // 新增: 获取自定义图像尺寸
+            getCustomImageSize() {
+                let width = parseInt(this.customWidthInput.value) || 512;
+                let height = parseInt(this.customHeightInput.value) || 512;
+                
+                // Ensure values are within valid range
+                width = Math.max(256, Math.min(1024, width));
+                height = Math.max(256, Math.min(1024, height));
+                
+                return [width, height];
+            }
+            
+            addMessageToChat(role, content, imageUrl = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(role === 'user' ? 'user-message' : 'bot-message');
+                messageDiv.textContent = content;
+                
+                // If there's an image URL and this is a bot message, add the image
+                if (imageUrl && role === 'assistant') {
+                    const imageContainer = document.createElement('div');
+                    imageContainer.className = 'image-container';
+                    
+                    const img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = 'Generated image';
+                    img.className = 'generated-image';
+                    
+                    imageContainer.appendChild(img);
+                    messageDiv.appendChild(imageContainer);
+                }
+                
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+            
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+            
+            showTypingIndicator() {
+                this.typingIndicator.style.display = 'block';
+                this.scrollToBottom();
+            }
+            
+            hideTypingIndicator() {
+                this.typingIndicator.style.display = 'none';
+            }
+            
+            async sendMessage() {
+                const message = this.userInput.value.trim();
+                if (!message) return;
+                
+                // Add user message to chat
+                this.addMessageToChat('user', message);
+                
+                // Clear input and disable button while processing
+                this.userInput.value = '';
+                this.sendButton.disabled = true;
+                
+                // Add to conversation history
+                this.conversationHistory.push({
+                    role: 'user',
+                    content: message
+                });
+                
+                try {
+                    // Show typing indicator
+                    this.showTypingIndicator();
+                    
+                    // Create bot message element for streaming (but keep it hidden)
+                    this.currentBotMessageElement = document.createElement('div');
+                    this.currentBotMessageElement.style.display = 'none'; // Hide the element
+                    this.currentBotMessageElement.classList.add('message', 'bot-message');
+                    this.currentBotMessageElement.textContent = '';
+                    this.chatMessages.appendChild(this.currentBotMessageElement);
+                    this.scrollToBottom();
+                    
+                    // Call API with streaming
+                    await this.callAPI();
+                    
+                    // Add to conversation history
+                    const botMessageContent = this.currentBotMessageElement.textContent;
+                    this.conversationHistory.push({
+                        role: 'assistant',
+                        content: botMessageContent
+                    });
+                    
+                    // Remove the streaming message element since we'll show sentence+image pairs
+                    this.currentBotMessageElement.remove();
+                    
+                    // Generate images for each sentence in the bot response
+                    await this.generateImagesForSentences(botMessageContent);
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    if (this.currentBotMessageElement) {
+                        this.currentBotMessageElement.textContent = `Error: ${error.message}`;
+                        this.currentBotMessageElement.style.display = 'block'; // Show error message
+                    }
+                    console.error('API Error:', error);
+                } finally {
+                    this.currentBotMessageElement = null;
+                    this.sendButton.disabled = false;
+                    this.userInput.focus();
+                }
+            }
+            
+            async callAPI() {
+                // Prepare messages with system prompt
+                const messages = [
+                    {
+                        role: 'system',
+                        content: this.systemPrompt
+                    },
+                    ...this.conversationHistory // Include the full conversation history
+                ];
+                
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        // 修改: 使用轮换的API密钥
+                        'Authorization': `Bearer ${this.getCurrentApiKey()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: this.model,
+                        messages: messages,
+                        stream: true // Enable streaming
+                    })
+                };
+                
+                const response = await fetch(this.apiUrl, options);
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+                
+                // Hide typing indicator when we start receiving data
+                this.hideTypingIndicator();
+                
+                // Process the stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            
+                            if (data === '[DONE]') {
+                                return;
+                            }
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed.choices[0]?.delta?.content;
+                                if (content) {
+                                    this.currentBotMessageElement.textContent += content;
+                                    this.scrollToBottom();
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e);
+                            }
+                        }
+                    }
+                }
+                
+                // Handle any remaining data in the buffer
+                if (buffer.startsWith('data: ')) {
+                    const data = buffer.slice(6);
+                    if (data !== '[DONE]') {
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices[0]?.delta?.content;
+                            if (content) {
+                                this.currentBotMessageElement.textContent += content;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing JSON:', e);
+                        }
+                    }
+                }
+            }
+            
+            // 修改: 将单个图片生成改为为每个句子生成图片
+            async generateImagesForSentences(text) {
+                // Split text into sentences using only Chinese punctuation marks
+                const sentences = text.split(/(?<=[。！？])\s*/).filter(s => s.trim().length > 0);
+                
+                // For each sentence, generate an image and display them alternately
+                for (const sentence of sentences) {
+                    if (sentence.trim().length === 0) continue;
+                    
+                    try {
+                        const imageUrl = await this.generateImage(sentence, text);
+                        if (imageUrl) {
+                            // Create a new bot message for each sentence+image pair
+                            const messageDiv = document.createElement('div');
+                            messageDiv.classList.add('message', 'bot-message');
+                            
+                            // Add sentence text
+                            const sentenceElement = document.createElement('p');
+                            sentenceElement.textContent = sentence;
+                            messageDiv.appendChild(sentenceElement);
+                            
+                            // Add image
+                            const imageContainer = document.createElement('div');
+                            imageContainer.className = 'image-container';
+                            
+                            const img = document.createElement('img');
+                            img.src = imageUrl;
+                            img.alt = 'Generated image for: ' + sentence;
+                            img.className = 'generated-image';
+                            img.addEventListener('dblclick', () => this.openImageModal(imageUrl));
+                            
+                            // 新增: 等待图片完全加载完成后再继续
+                            await new Promise((resolve, reject) => {
+                                img.onload = () => resolve();
+                                img.onerror = () => reject(new Error('Image load failed'));
+                                // 添加超时机制，避免无限等待
+                                setTimeout(() => resolve(), 10000);
+                            });
+                            
+                            imageContainer.appendChild(img);
+                            messageDiv.appendChild(imageContainer);
+                            
+                            // Add the sentence+image pair to chat
+                            this.chatMessages.appendChild(messageDiv);
+                        }
+                    } catch (error) {
+                        console.error('Error generating image for sentence:', sentence, error);
+                    }
+                    
+                    this.scrollToBottom();
+                }
+            }
+            
+            async generateImage(description, fullStory) {
+                try {
+                    // First, refine the prompt using a language model
+                    const refinedPrompt = await this.refineImagePrompt(description, fullStory);
+                    
+                    // 新增: 显示提示词到侧边栏
+                    this.addPromptToSidebar(description, refinedPrompt);
+                    
+                    // Implement retry mechanism for image generation
+                    let retries = 0;
+                    const maxRetries = 50;
+                    const retryDelay = 2000; // 2 seconds
+                    
+                    while (retries <= maxRetries) {
+                        try {
+                            const response = await fetch('https://api.siliconflow.cn/v1/images/generations', {
+                                method: 'POST',
+                                headers: {
+                                    // 修改: 使用轮换的API密钥
+                                    'Authorization': `Bearer ${this.getCurrentApiKey()}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    model: this.imageGenerationModel,
+                                    prompt: refinedPrompt,
+                                    "image_size": this.imageSize === 'custom' ? 
+                                        `${this.getCustomImageSize()[0]}x${this.getCustomImageSize()[1]}` : 
+                                        this.imageSize,
+                                    "negative_prompt": "bad anime, bad illustration,Incomplete body,lowres, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, artist name",
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                // Return the first generated image URL
+                                return data.data && data.data[0] && data.data[0].url;
+                            }
+                            
+                            // If response is not ok, throw error to trigger retry
+                            throw new Error(`Image generation failed with status ${response.status}`);
+                        } catch (error) {
+                            retries++;
+                            if (retries > maxRetries) {
+                                throw new Error(`Image generation failed after ${maxRetries} retries: ${error.message}`);
+                            }
+                            
+                            // Wait before retrying
+                            await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Image generation error:', error);
+                    return null;
+                }
+            }
+            
+            async refineImagePrompt(originalDescription, fullStory) {
+                try {
+                    // Create a prompt for the refinement model
+                    const system_prompt=`You are an expert at writing prompts with no more than 100 English words for AI image generators. 
+                    Take the following description and create a highly detailed, artistic prompt for an image generator.
+                    The full story context is: "${fullStory}"`
+                    const refinementPrompt = `The specific sentence to visualize is: "${originalDescription}".
+                    Respond ONLY with the refined prompt, no other text.`;
+                    
+                    const response = await fetch(this.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            // 修改: 使用轮换的API密钥
+                            'Authorization': `Bearer ${this.getCurrentApiKey()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            // Use this.model instead of this.promptRefinementModel
+                            model: this.model,
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: system_prompt
+                                },
+                                {
+                                    role: "user",
+                                    content: refinementPrompt
+                                }
+                            ],
+                            stream: false
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Prompt refinement failed with status ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const refinedPrompt = data.choices[0]?.message?.content?.trim() || originalDescription;
+                    
+                    // Clean up the refined prompt by removing any quotes around it
+                    return refinedPrompt.replace(/^["'](.+(?=["']$))["']$/, '$1');
+                } catch (error) {
+                    console.error('Prompt refinement error:', error);
+                    // Fallback to original description if refinement fails
+                    return originalDescription;
+                }
+            }
+            
+            // 新增: 添加提示词到侧边栏
+            addPromptToSidebar(original, refined) {
+                const promptItem = document.createElement('div');
+                promptItem.className = 'prompt-item';
+                
+                // Check if prompts are actually different
+                const areSame = original.trim() === refined.trim();
+                
+                promptItem.innerHTML = `
+                    <div class="prompt-text">${original}</div>
+                    <div style="font-size: 0.8em; color: #777;">优化后: ${refined}</div>
+                    ${areSame ? '<div style="font-size: 0.7em; color: #f00;">提示词未优化</div>' : ''}
+                `;
+                
+                this.promptsContainer.appendChild(promptItem);
+            }
+            
+            // 新增: 切换提示词侧边栏显示状态
+            togglePromptsSidebar() {
+                this.promptsSidebar.classList.toggle('active');
+            }
+            
+            // Add method to open image in modal
+            openImageModal(imageUrl) {
+                // Create modal if it doesn't exist
+                let modal = document.getElementById('imageModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'imageModal';
+                    modal.className = 'image-modal';
+                    
+                    const modalContent = document.createElement('div');
+                    modalContent.className = 'image-modal-content';
+                    
+                    const closeBtn = document.createElement('span');
+                    closeBtn.className = 'close-image-modal';
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.onclick = () => this.closeImageModal();
+                    
+                    const img = document.createElement('img');
+                    img.id = 'modalImage';
+                    
+                    modalContent.appendChild(img);
+                    modal.appendChild(closeBtn);
+                    modal.appendChild(modalContent);
+                    document.body.appendChild(modal);
+                    
+                    // Close modal when clicking outside the image
+                    modal.onclick = (e) => {
+                        if (e.target === modal) {
+                            this.closeImageModal();
+                        }
+                    };
+                }
+                
+                // Set image source and show modal
+                document.getElementById('modalImage').src = imageUrl;
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            }
+            
+            // Add method to close image modal
+            closeImageModal() {
+                const modal = document.getElementById('imageModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto'; // Re-enable scrolling
+                }
+            }
+            
+            // 修改: 添加开始新对话的方法
+            startNewChat() {
+                // 保存当前对话历史到本地存储
+                if (this.conversationHistory.length > 0) {
+                    const chatHistory = JSON.parse(localStorage.getItem('chatHistories') || '[]');
+                    chatHistory.push({
+                        id: Date.now(),
+                        timestamp: new Date().toLocaleString(),
+                        messages: this.conversationHistory
+                    });
+                    localStorage.setItem('chatHistories', JSON.stringify(chatHistory));
+                }
+                
+                // 清空当前对话
+                this.conversationHistory = [];
+                
+                // 清空聊天界面中的消息（保留初始欢迎消息）
+                const messages = this.chatMessages.querySelectorAll('.message');
+                for (let i = 1; i < messages.length; i++) { // 保留第一条欢迎消息
+                    messages[i].remove();
+                }
+                
+                // 清空提示词侧边栏
+                this.promptsContainer.innerHTML = '';
+                
+                // 添加新的欢迎消息
+                this.addMessageToChat('assistant', '您好！我是您的小说家助手。我们来聊点什么故事呢？');
+            }
+        }
+        
+        // Initialize the chat when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatBot = new ChatBot();
+        });
+    </script>
+</body>
+</html>
